@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import Modal from "../components/Modal";
 import StatCard from "../components/StatCard";
 import api, { getErrorMessage } from "../services/api";
 import {
@@ -9,10 +8,10 @@ import {
   getOrderIdentifier,
   getOrderItemName,
 } from "../services/formatters";
-import { connectSocket } from "../services/socket";
 
 const DASHBOARD_SEARCH_DEBOUNCE_MS = 300;
 const DASHBOARD_LIMIT = 100;
+const DELETE_ALL_ORDERS_CONFIRM_TEXT = "DELETE ALL ORDERS";
 
 const DASHBOARD_TABS = [
   { key: "total", title: "Total Orders", heading: "All Orders", status: "" },
@@ -87,14 +86,6 @@ const isOrderExpiredError = (error) =>
     .toLowerCase()
     .includes("confirmation time expired");
 
-const getAppStatusFromResponse = (response) => {
-  const source = response?.data?.data || response?.data || {};
-  return {
-    isActive: source?.isActive !== false,
-    message: source?.message || "",
-  };
-};
-
 export default function Dashboard() {
   const {
     orders,
@@ -109,6 +100,7 @@ export default function Dashboard() {
     ordersFilters,
     updateOrderStatus,
     addToast,
+    clearOrdersAndRevenueState,
   } = useOutletContext();
 
   const [activeTab, setActiveTab] = useState("total");
@@ -120,13 +112,10 @@ export default function Dashboard() {
   const [selectedOrderForModal, setSelectedOrderForModal] = useState(null);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [outForDeliveryLoading, setOutForDeliveryLoading] = useState(false);
-  const [appStatusLoading, setAppStatusLoading] = useState(true);
-  const [appStatusUpdating, setAppStatusUpdating] = useState(false);
-  const [appStatusConfirmOpen, setAppStatusConfirmOpen] = useState(false);
-  const [appStatus, setAppStatus] = useState({
-    isActive: true,
-    message: "Daawat is accepting orders",
-  });
+  const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
+  const [deleteAllPassword, setDeleteAllPassword] = useState("");
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState("");
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const dateInputRef = useRef(null);
 
   const activeTabConfig = useMemo(
@@ -149,58 +138,6 @@ export default function Dashboard() {
     }, DASHBOARD_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadAppStatus = async () => {
-      try {
-        setAppStatusLoading(true);
-        const response = await api.get("/api/app-status");
-        if (!isMounted) {
-          return;
-        }
-        setAppStatus(getAppStatusFromResponse(response));
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-        addToast({
-          title: "App status error",
-          message: getErrorMessage(error, "Failed to load app status"),
-          type: "error",
-        });
-      } finally {
-        if (isMounted) {
-          setAppStatusLoading(false);
-        }
-      }
-    };
-
-    void loadAppStatus();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [addToast]);
-
-  useEffect(() => {
-    const socket = connectSocket();
-
-    const handleAppStatusUpdated = (payload) => {
-      const nextPayload = payload?.data || payload || {};
-      setAppStatus({
-        isActive: nextPayload?.isActive !== false,
-        message: nextPayload?.message || "",
-      });
-    };
-
-    socket.on("app_status_updated", handleAppStatusUpdated);
-
-    return () => {
-      socket.off("app_status_updated", handleAppStatusUpdated);
-    };
-  }, []);
 
   const dateFilteredOrders = useMemo(() => {
     const withoutExpired = orders.filter(
@@ -408,6 +345,54 @@ export default function Dashboard() {
         totalRevenue: stats.totalRevenue || 0,
       };
 
+  const deleteConfirmationMatched =
+    deleteAllConfirmText === DELETE_ALL_ORDERS_CONFIRM_TEXT;
+  const canDeleteOrders =
+    deleteAllPassword.trim().length > 0 && deleteConfirmationMatched && !deleteAllLoading;
+
+  const closeDeleteAllModal = (force = false) => {
+    if (deleteAllLoading && !force) {
+      return;
+    }
+    setDeleteAllModalOpen(false);
+    setDeleteAllPassword("");
+    setDeleteAllConfirmText("");
+  };
+
+  const handleDeleteAllOrders = async () => {
+    const password = deleteAllPassword.trim();
+    if (!password || !deleteConfirmationMatched || deleteAllLoading) {
+      return;
+    }
+
+    try {
+      setDeleteAllLoading(true);
+      await api.delete("/api/owner/orders/clear-all", {
+        data: {
+          password,
+          confirmText: DELETE_ALL_ORDERS_CONFIRM_TEXT,
+        },
+      });
+
+      clearOrdersAndRevenueState();
+      closeDeleteAllModal(true);
+      await refreshOrders();
+      addToast({
+        title: "Success",
+        message: "All orders and revenue data deleted successfully",
+        type: "success",
+      });
+    } catch (error) {
+      addToast({
+        title: "Delete failed",
+        message: getErrorMessage(error, "Failed to delete orders"),
+        type: "error",
+      });
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
   const openDatePicker = () => {
     if (!dateInputRef.current) {
       return;
@@ -435,91 +420,11 @@ export default function Dashboard() {
     setSelectedOrderDate(selected);
   };
 
-  const updateAppStatus = async (isActive) => {
-    const previousStatus = appStatus;
-    const message = isActive
-      ? "Daawat is accepting orders"
-      : "Daawat is currently not accepting orders";
-
-    try {
-      setAppStatusUpdating(true);
-      setAppStatus({ isActive, message });
-      const response = await api.patch("/api/owner/app-status", {
-        isActive,
-        message,
-      });
-      setAppStatus(getAppStatusFromResponse(response));
-      addToast({
-        title: "Success",
-        message: isActive ? "App marked active" : "App marked inactive",
-        type: "success",
-      });
-    } catch (error) {
-      setAppStatus(previousStatus);
-      addToast({
-        title: "Update failed",
-        message: getErrorMessage(error, "Failed to update app status"),
-        type: "error",
-      });
-    } finally {
-      setAppStatusUpdating(false);
-    }
-  };
-
-  const handleAppStatusToggle = () => {
-    if (appStatusLoading || appStatusUpdating) {
-      return;
-    }
-
-    if (appStatus.isActive) {
-      setAppStatusConfirmOpen(true);
-      return;
-    }
-
-    void updateAppStatus(true);
-  };
-
-  const confirmMakeInactive = () => {
-    setAppStatusConfirmOpen(false);
-    void updateAppStatus(false);
-  };
-
   return (
     <div className="page-stack">
       <div className="page-actions">
         <h2>Overview</h2>
         <div className="orders-actions">
-          <div
-            className={`app-status-control ${appStatus.isActive ? "active" : "inactive"} ${
-              appStatusLoading ? "loading" : ""
-            }`}
-          >
-            <div className="app-status-text">
-              <span>App Status</span>
-              <strong>
-                {appStatusLoading
-                  ? "Checking status..."
-                  : appStatus.isActive
-                    ? "App Active"
-                    : "App Inactive"}
-              </strong>
-            </div>
-            <button
-              type="button"
-              className="app-status-switch"
-              onClick={handleAppStatusToggle}
-              disabled={appStatusLoading || appStatusUpdating}
-              aria-pressed={appStatus.isActive}
-            >
-              <span className={`app-status-track ${appStatus.isActive ? "on" : "off"}`}>
-                <span className="app-status-thumb" />
-              </span>
-              <span className="app-status-value">
-                {appStatusUpdating ? "Updating..." : appStatus.isActive ? "Active" : "Inactive"}
-              </span>
-            </button>
-          </div>
-
           <div className="date-filter-controls">
             <button
               type="button"
@@ -609,7 +514,21 @@ export default function Dashboard() {
       <section className="panel">
         <div className="panel-head">
           <h3>{activeTabConfig.heading}</h3>
-          {ordersRefreshing && <p className="muted">Refreshing orders...</p>}
+          <div className="panel-head-actions">
+            {ordersRefreshing && <p className="muted">Refreshing orders...</p>}
+            {activeTab === "total" && (
+              <button
+                type="button"
+                className="btn danger delete-all-orders-btn"
+                onClick={() => setDeleteAllModalOpen(true)}
+              >
+                <span className="delete-all-orders-icon" aria-hidden="true">
+                  !
+                </span>
+                <span>Delete All Orders</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="orders-filters single">
@@ -745,6 +664,71 @@ export default function Dashboard() {
         )}
       </section>
 
+      {deleteAllModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card delete-all-orders-modal">
+            <div className="delete-all-orders-modal-head">
+              <span className="delete-all-orders-modal-icon" aria-hidden="true">
+                !
+              </span>
+              <div>
+                <h3>Delete all orders?</h3>
+                <p>
+                  This will permanently delete all order details and reset revenue data.
+                  Menu items, categories, banners, and app settings will not be deleted.
+                </p>
+              </div>
+            </div>
+
+            <p className="delete-all-orders-modal-warning">
+              Type {DELETE_ALL_ORDERS_CONFIRM_TEXT} to confirm.
+            </p>
+
+            <div className="form-grid delete-all-orders-modal-form">
+              <label>
+                Owner Password
+                <input
+                  type="password"
+                  value={deleteAllPassword}
+                  onChange={(event) => setDeleteAllPassword(event.target.value)}
+                  placeholder="Enter owner password"
+                  autoComplete="current-password"
+                  disabled={deleteAllLoading}
+                />
+              </label>
+
+              <label>
+                Confirmation Text
+                <input
+                  type="text"
+                  value={deleteAllConfirmText}
+                  onChange={(event) => setDeleteAllConfirmText(event.target.value)}
+                  placeholder="Type DELETE ALL ORDERS"
+                  disabled={deleteAllLoading}
+                />
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn ghost"
+                onClick={() => closeDeleteAllModal()}
+                disabled={deleteAllLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn danger delete-all-orders-confirm-btn"
+                onClick={() => void handleDeleteAllOrders()}
+                disabled={!canDeleteOrders}
+              >
+                {deleteAllLoading ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedOrderForModal && (
         <div className="modal-backdrop">
           <div className="modal-card modal-card-large">
@@ -877,16 +861,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      <Modal
-        isOpen={appStatusConfirmOpen}
-        title="Make app inactive?"
-        description="Customers will not be able to place orders until you activate the app again."
-        cancelText="Cancel"
-        confirmText="Yes, make inactive"
-        loading={appStatusUpdating}
-        onCancel={() => setAppStatusConfirmOpen(false)}
-        onConfirm={confirmMakeInactive}
-      />
     </div>
   );
 }

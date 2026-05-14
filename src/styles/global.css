@@ -128,8 +128,8 @@ button {
 }
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 1rem;
   align-items: center;
   padding: 1rem 1.5rem;
@@ -142,6 +142,13 @@ button {
   display: flex;
   gap: 0.9rem;
   align-items: center;
+  min-width: 0;
+}
+
+.topbar-center {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .topbar-left h1 {
@@ -200,6 +207,7 @@ button {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  justify-content: flex-end;
 }
 
 .content-shell {
@@ -401,6 +409,14 @@ button {
   margin-bottom: 0.6rem;
 }
 
+.panel-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -546,6 +562,37 @@ button {
 
 .btn.danger {
   background: rgba(201, 66, 66, 0.9);
+}
+
+.delete-all-orders-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.62rem 0.9rem;
+  border: 1px solid rgba(255, 132, 132, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(201, 66, 66, 0.2),
+    0 10px 22px rgba(0, 0, 0, 0.25);
+}
+
+.delete-all-orders-btn:hover {
+  box-shadow:
+    0 0 0 1px rgba(201, 66, 66, 0.36),
+    0 12px 26px rgba(0, 0, 0, 0.3);
+}
+
+.delete-all-orders-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 231, 231, 0.45);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff3f3;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .btn.success {
@@ -701,9 +748,16 @@ th {
 .order-status-badge {
   border: 1px solid rgba(213, 164, 74, 0.5);
   border-radius: 999px;
-  padding: 0.35rem 0.7rem;
+  padding: 0.35rem 0.82rem;
   font-size: 0.82rem;
   color: #ffe9c2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 42px;
+  min-width: 112px;
+  line-height: 1.2;
 }
 
 .order-card.highlight {
@@ -943,6 +997,66 @@ th {
   color: var(--muted);
 }
 
+.delete-all-orders-modal {
+  border-color: rgba(201, 66, 66, 0.65);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(201, 66, 66, 0.22), transparent 40%),
+    linear-gradient(145deg, rgba(31, 18, 18, 0.98), rgba(20, 14, 14, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(201, 66, 66, 0.26),
+    0 16px 42px rgba(0, 0, 0, 0.5);
+}
+
+.delete-all-orders-modal-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.delete-all-orders-modal-head p {
+  margin-top: 0.42rem;
+  color: #f1c5c5;
+  line-height: 1.4;
+  font-size: 0.9rem;
+}
+
+.delete-all-orders-modal-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 188, 188, 0.6);
+  background: rgba(201, 66, 66, 0.2);
+  color: #ffd9d9;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.delete-all-orders-modal-warning {
+  margin: 0.8rem 0 0.95rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 126, 126, 0.38);
+  background: rgba(201, 66, 66, 0.16);
+  color: #ffd7d7;
+  padding: 0.62rem 0.72rem;
+  font-size: 0.88rem;
+}
+
+.delete-all-orders-modal-form input {
+  border-color: rgba(255, 130, 130, 0.26);
+}
+
+.delete-all-orders-modal-form input:focus {
+  outline: 1px solid rgba(255, 136, 136, 0.85);
+}
+
+.delete-all-orders-confirm-btn {
+  min-width: 170px;
+}
+
 .modal-actions {
   display: flex;
   gap: 0.6rem;
@@ -1122,7 +1236,7 @@ th {
 
 @media (max-width: 650px) {
   .topbar {
-    flex-wrap: wrap;
+    grid-template-columns: 1fr;
     padding: 0.9rem;
   }
 
@@ -1130,13 +1244,17 @@ th {
     width: 100%;
   }
 
+  .topbar-center {
+    justify-content: flex-start;
+  }
+
   .topbar-actions {
     width: 100%;
-    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .logout-btn {
-    flex: 1 1 130px;
+    flex: 0 0 auto;
   }
 
   .orders-footer {
@@ -1156,6 +1274,15 @@ th {
   .app-status-control {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .panel-head {
+    align-items: flex-start;
+  }
+
+  .panel-head-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .date-filter-controls {

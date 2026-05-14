@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import Modal from "./Modal";
 import Toast from "./Toast";
 import api, { TOKEN_KEY, getErrorMessage } from "../services/api";
 import { connectSocket, disconnectSocket } from "../services/socket";
@@ -35,6 +36,14 @@ const INITIAL_PAGINATION = {
   totalPages: 0,
   hasNextPage: false,
   hasPrevPage: false,
+};
+
+const getAppStatusFromResponse = (response) => {
+  const source = response?.data?.data || response?.data || {};
+  return {
+    isActive: source?.isActive !== false,
+    message: source?.message || "",
+  };
 };
 
 const delay = (durationMs) =>
@@ -141,6 +150,13 @@ export default function Layout() {
   const [activeIncomingOrder, setActiveIncomingOrder] = useState(null);
   const [customerCancelledOrder, setCustomerCancelledOrder] = useState(null);
   const [incomingOrderActionLoading, setIncomingOrderActionLoading] = useState(false);
+  const [appStatusLoading, setAppStatusLoading] = useState(true);
+  const [appStatusUpdating, setAppStatusUpdating] = useState(false);
+  const [appStatusConfirmOpen, setAppStatusConfirmOpen] = useState(false);
+  const [appStatus, setAppStatus] = useState({
+    isActive: true,
+    message: "Daawat is accepting orders",
+  });
 
   const isSearchActive = Boolean(ordersFilters.search.trim());
 
@@ -156,6 +172,84 @@ export default function Layout() {
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((item) => item.id !== id));
   }, []);
+
+  const clearOrdersAndRevenueState = useCallback(
+    ({ showToast = false, toastMessage = "Orders data was cleared" } = {}) => {
+      setOrders([]);
+      setOrderStats({ ...INITIAL_STATS });
+      setOrdersPagination((prev) => ({
+        ...prev,
+        page: 1,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      }));
+      setActiveIncomingOrder(null);
+      setCustomerCancelledOrder(null);
+
+      if (showToast) {
+        addToast({
+          title: "Orders cleared",
+          message: toastMessage,
+          type: "success",
+        });
+      }
+    },
+    [addToast]
+  );
+
+  const updateAppStatus = useCallback(
+    async (isActive) => {
+      const previousStatus = appStatus;
+      const message = isActive
+        ? "Daawat is accepting orders"
+        : "Daawat is currently not accepting orders";
+
+      try {
+        setAppStatusUpdating(true);
+        setAppStatus({ isActive, message });
+        const response = await api.patch("/api/owner/app-status", {
+          isActive,
+          message,
+        });
+        setAppStatus(getAppStatusFromResponse(response));
+        addToast({
+          title: "Success",
+          message: isActive ? "App marked active" : "App marked inactive",
+          type: "success",
+        });
+      } catch (error) {
+        setAppStatus(previousStatus);
+        addToast({
+          title: "Update failed",
+          message: getErrorMessage(error, "Failed to update app status"),
+          type: "error",
+        });
+      } finally {
+        setAppStatusUpdating(false);
+      }
+    },
+    [addToast, appStatus]
+  );
+
+  const handleAppStatusToggle = useCallback(() => {
+    if (appStatusLoading || appStatusUpdating) {
+      return;
+    }
+
+    if (appStatus.isActive) {
+      setAppStatusConfirmOpen(true);
+      return;
+    }
+
+    void updateAppStatus(true);
+  }, [appStatus.isActive, appStatusLoading, appStatusUpdating, updateAppStatus]);
+
+  const confirmMakeInactive = useCallback(() => {
+    setAppStatusConfirmOpen(false);
+    void updateAppStatus(false);
+  }, [updateAppStatus]);
 
   const unlockNotificationAudio = useCallback(async () => {
     const audio = notificationAudioRef.current;
@@ -240,6 +334,58 @@ export default function Layout() {
       window.removeEventListener("pointerdown", unlockFromFirstInteraction);
     };
   }, [audioUnlocked, unlockNotificationAudio]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAppStatus = async () => {
+      try {
+        setAppStatusLoading(true);
+        const response = await api.get("/api/app-status");
+        if (!isMounted) {
+          return;
+        }
+        setAppStatus(getAppStatusFromResponse(response));
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        addToast({
+          title: "App status error",
+          message: getErrorMessage(error, "Failed to load app status"),
+          type: "error",
+        });
+      } finally {
+        if (isMounted) {
+          setAppStatusLoading(false);
+        }
+      }
+    };
+
+    void loadAppStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [addToast]);
+
+  useEffect(() => {
+    const socket = connectSocket();
+
+    const handleAppStatusUpdated = (payload) => {
+      const nextPayload = payload?.data || payload || {};
+      setAppStatus({
+        isActive: nextPayload?.isActive !== false,
+        message: nextPayload?.message || "",
+      });
+    };
+
+    socket.on("app_status_updated", handleAppStatusUpdated);
+
+    return () => {
+      socket.off("app_status_updated", handleAppStatusUpdated);
+    };
+  }, []);
 
   const fetchOrderStats = useCallback(async () => {
     try {
@@ -605,11 +751,19 @@ export default function Layout() {
       void fetchOrderStats();
     };
 
+    const handleOrdersCleared = () => {
+      clearOrdersAndRevenueState({
+        showToast: true,
+        toastMessage: "Orders data was cleared",
+      });
+    };
+
     socket.on("new_order", handleNewOrder);
     socket.on("customer_order_cancelled", handleCustomerCancellation);
     socket.on("order_status_updated", handleCustomerCancellation);
     socket.on("order_confirmation_expired", handleOrderConfirmationExpired);
     socket.on("order_status_updated", handleOrderConfirmationExpired);
+    socket.on("orders_cleared", handleOrdersCleared);
 
     return () => {
       socket.off("new_order", handleNewOrder);
@@ -617,10 +771,12 @@ export default function Layout() {
       socket.off("order_status_updated", handleCustomerCancellation);
       socket.off("order_confirmation_expired", handleOrderConfirmationExpired);
       socket.off("order_status_updated", handleOrderConfirmationExpired);
+      socket.off("orders_cleared", handleOrdersCleared);
       disconnectSocket();
     };
   }, [
     addToast,
+    clearOrdersAndRevenueState,
     refreshOrders,
     fetchOrderStats,
     ordersFilters.status,
@@ -661,6 +817,7 @@ export default function Layout() {
       orderStats,
       orderStatsLoading,
       refreshOrderStats: fetchOrderStats,
+      clearOrdersAndRevenueState,
       isSearchActive,
       updateOrderStatus: applyOrderStatusUpdate,
     }),
@@ -680,6 +837,7 @@ export default function Layout() {
       orderStats,
       orderStatsLoading,
       fetchOrderStats,
+      clearOrdersAndRevenueState,
       isSearchActive,
       applyOrderStatusUpdate,
     ]
@@ -693,6 +851,12 @@ export default function Layout() {
         <Header
           onMenuToggle={() => setSidebarOpen((prev) => !prev)}
           onLogout={handleLogout}
+          appStatusControl={{
+            isActive: appStatus.isActive,
+            isLoading: appStatusLoading,
+            isUpdating: appStatusUpdating,
+            onToggle: handleAppStatusToggle,
+          }}
         />
 
         <section className="content-shell" onClick={() => setSidebarOpen(false)}>
@@ -898,6 +1062,17 @@ export default function Layout() {
       )}
 
       <Toast toasts={toasts} onClose={removeToast} />
+
+      <Modal
+        isOpen={appStatusConfirmOpen}
+        title="Make app inactive?"
+        description="Customers will not be able to place orders until you activate the app again."
+        cancelText="Cancel"
+        confirmText="Yes, make inactive"
+        loading={appStatusUpdating}
+        onCancel={() => setAppStatusConfirmOpen(false)}
+        onConfirm={confirmMakeInactive}
+      />
     </div>
   );
 }

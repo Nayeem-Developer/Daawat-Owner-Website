@@ -3,9 +3,11 @@ import { API_BASE_URL, TOKEN_KEY } from "./api";
 
 let socketInstance;
 
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_BASE_URL;
+
 export const getSocket = () => {
   if (!socketInstance) {
-    socketInstance = io(API_BASE_URL, {
+    socketInstance = io(SOCKET_URL, {
       autoConnect: false,
       transports: ["websocket", "polling"],
     });

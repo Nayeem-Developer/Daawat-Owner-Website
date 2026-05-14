@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import api, { TOKEN_KEY, getErrorMessage } from "../services/api";
+import api, { API_BASE_URL, TOKEN_KEY, getErrorMessage } from "../services/api";
 import logo from "../assets/images/daawat-logo.png";
 
 export default function Login() {
@@ -85,7 +85,7 @@ export default function Login() {
           </button>
         </form>
 
-        <small>Backend URL: http://localhost:5000</small>
+        <small>Backend URL: {API_BASE_URL}</small>
       </div>
     </div>
   );

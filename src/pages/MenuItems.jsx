@@ -47,28 +47,30 @@ const resolveCanonicalCategoryName = (value) => {
   return null;
 };
 
-const getListFromResponse = (response, keys = []) => {
-  const data = response?.data;
+const getListFromResponseBody = (responseBody, keys = []) => {
+  const items = Array.isArray(responseBody?.data)
+    ? responseBody.data
+    : Array.isArray(responseBody?.items)
+      ? responseBody.items
+      : Array.isArray(responseBody)
+        ? responseBody
+        : [];
 
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (Array.isArray(data?.data)) {
-    return data.data;
+  if (items.length > 0) {
+    return items;
   }
 
   for (const key of keys) {
-    if (Array.isArray(data?.[key])) {
-      return data[key];
+    if (Array.isArray(responseBody?.[key])) {
+      return responseBody[key];
     }
 
-    if (Array.isArray(data?.data?.[key])) {
-      return data.data[key];
+    if (Array.isArray(responseBody?.data?.[key])) {
+      return responseBody.data[key];
     }
   }
 
-  return [];
+  return items;
 };
 
 const normalizeCategory = (category) => {
@@ -203,7 +205,12 @@ export default function MenuItems() {
         api.get("/api/owner/menu-items"),
       ]);
 
-      const categoriesList = getListFromResponse(categoriesResponse, ["categories"])
+      const categoriesResponseBody = categoriesResponse?.data;
+      const categoriesRaw = getListFromResponseBody(categoriesResponseBody, ["categories"]);
+      console.log("Owner panel API response:", categoriesResponseBody);
+      console.log("Parsed items:", categoriesRaw.length);
+
+      const categoriesList = categoriesRaw
         .map(normalizeCategory)
         .filter(
           (category) =>
@@ -216,7 +223,12 @@ export default function MenuItems() {
         return categoriesList.find((category) => category.name === name) || null;
       }).filter(Boolean);
 
-      const normalizedItems = getListFromResponse(itemsResponse, ["menuItems", "items"])
+      const itemsResponseBody = itemsResponse?.data;
+      const rawItems = getListFromResponseBody(itemsResponseBody, ["menuItems", "items"]);
+      console.log("Owner panel API response:", itemsResponseBody);
+      console.log("Parsed items:", rawItems.length);
+
+      const normalizedItems = rawItems
         .map(normalizeItem)
         .filter(
           (item) =>

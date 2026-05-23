@@ -120,6 +120,32 @@ const normalizePagination = (rawPagination, page, limit, totalFromPayload, listL
   };
 };
 
+const getListFromResponseBody = (responseBody, keys = []) => {
+  const items = Array.isArray(responseBody?.data)
+    ? responseBody.data
+    : Array.isArray(responseBody?.items)
+      ? responseBody.items
+      : Array.isArray(responseBody)
+        ? responseBody
+        : [];
+
+  if (items.length > 0) {
+    return items;
+  }
+
+  for (const key of keys) {
+    if (Array.isArray(responseBody?.[key])) {
+      return responseBody[key];
+    }
+
+    if (Array.isArray(responseBody?.data?.[key])) {
+      return responseBody.data[key];
+    }
+  }
+
+  return items;
+};
+
 export default function Layout() {
   const navigate = useNavigate();
   const notificationAudioRef = useRef(null);
@@ -390,8 +416,18 @@ export default function Layout() {
   const fetchOrderStats = useCallback(async () => {
     try {
       const response = await api.get("/api/owner/orders/stats");
-      setOrderStats({ ...INITIAL_STATS, ...(response.data?.stats || {}) });
-      return response.data?.stats || null;
+      const responseBody = response?.data || {};
+      const statsCandidate =
+        responseBody?.stats ||
+        responseBody?.data?.stats ||
+        responseBody?.data ||
+        {};
+      const stats =
+        statsCandidate && typeof statsCandidate === "object" && !Array.isArray(statsCandidate)
+          ? statsCandidate
+          : {};
+      setOrderStats({ ...INITIAL_STATS, ...stats });
+      return stats;
     } catch {
       return null;
     } finally {
@@ -426,14 +462,14 @@ export default function Layout() {
 
       try {
         const response = await api.get("/api/owner/orders", { params });
-        const payload = response.data || {};
-        const rawOrders = Array.isArray(payload?.orders)
-          ? payload.orders
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : Array.isArray(payload)
-              ? payload
-              : [];
+        const responseBody = response?.data;
+        const payload =
+          responseBody && typeof responseBody === "object" && !Array.isArray(responseBody)
+            ? responseBody
+            : {};
+        const rawOrders = getListFromResponseBody(responseBody, ["orders"]);
+        console.log("Owner panel API response:", responseBody);
+        console.log("Parsed items:", rawOrders.length);
 
         const normalized = rawOrders
           .map((order) => normalizeOrder(order))

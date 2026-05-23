@@ -36,55 +36,37 @@ const CATEGORY_ALIAS_RULES = [
   [/^veg[\s-]*-?[\s-]*non[\s-]?veg noodles$/i, "Noodles"],
 ];
 
-const getListFromResponse = (response, keys = []) => {
-  const data = response?.data;
+const getListFromResponseBody = (responseBody, keys = []) => {
+  const items = Array.isArray(responseBody?.data)
+    ? responseBody.data
+    : Array.isArray(responseBody?.items)
+      ? responseBody.items
+      : Array.isArray(responseBody)
+        ? responseBody
+        : [];
 
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (Array.isArray(data?.data)) {
-    return data.data;
+  if (items.length > 0) {
+    return items;
   }
 
   for (const key of keys) {
-    if (Array.isArray(data?.[key])) {
-      return data[key];
+    if (Array.isArray(responseBody?.[key])) {
+      return responseBody[key];
     }
 
-    if (Array.isArray(data?.data?.[key])) {
-      return data.data[key];
+    if (Array.isArray(responseBody?.data?.[key])) {
+      return responseBody.data[key];
     }
   }
 
-  return [];
+  return items;
 };
 
-const getMenuItemsFromResponse = (response) => {
-  const data = response?.data;
+const getListFromResponse = (response, keys = []) =>
+  getListFromResponseBody(response?.data, keys);
 
-  if (Array.isArray(data?.data)) {
-    return data.data;
-  }
-
-  if (Array.isArray(data?.menuItems)) {
-    return data.menuItems;
-  }
-
-  if (Array.isArray(data?.items)) {
-    return data.items;
-  }
-
-  if (Array.isArray(data?.data?.menuItems)) {
-    return data.data.menuItems;
-  }
-
-  if (Array.isArray(data?.data?.items)) {
-    return data.data.items;
-  }
-
-  return [];
-};
+const getMenuItemsFromResponse = (response) =>
+  getListFromResponseBody(response?.data, ["menuItems", "items"]);
 
 const getCountFromCategory = (category) => {
   const candidates = [
@@ -774,8 +756,10 @@ export default function Categories() {
         );
 
         const mergedRawItems = responses.flatMap((response, index) => {
-          console.log("Raw owner menu response:", response.data);
+          const responseBody = response?.data;
           const items = getMenuItemsFromResponse(response);
+          console.log("Owner panel API response:", responseBody);
+          console.log("Parsed items:", items.length);
           return Array.isArray(items)
             ? items.map((item) => ({
                 ...item,
@@ -825,7 +809,10 @@ export default function Categories() {
       setCategoriesError("");
 
       const response = await api.get("/api/owner/categories");
+      const responseBody = response?.data;
       const list = getListFromResponse(response, ["categories"]);
+      console.log("Owner panel API response:", responseBody);
+      console.log("Parsed items:", list.length);
       const normalized = list
         .map(normalizeCategory)
         .filter((category) => category._id && category.isActive !== false);
@@ -934,8 +921,11 @@ export default function Categories() {
             );
 
             const categoryItems = responsesBySource.flatMap((response) => {
-              const data = getMenuItemsFromResponse(response);
-              return Array.isArray(data) ? data : [];
+              const responseBody = response?.data;
+              const items = getMenuItemsFromResponse(response);
+              console.log("Owner panel API response:", responseBody);
+              console.log("Parsed items:", items.length);
+              return Array.isArray(items) ? items : [];
             });
 
             setItemCountMap((prev) => ({ ...prev, [category._id]: categoryItems.length }));

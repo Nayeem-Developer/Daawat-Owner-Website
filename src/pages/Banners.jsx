@@ -15,28 +15,30 @@ const createInitialForm = () => ({
   isActive: true,
 });
 
-const getListFromResponse = (response, keys = []) => {
-  const data = response?.data;
+const getListFromResponseBody = (responseBody, keys = []) => {
+  const items = Array.isArray(responseBody?.data)
+    ? responseBody.data
+    : Array.isArray(responseBody?.items)
+      ? responseBody.items
+      : Array.isArray(responseBody)
+        ? responseBody
+        : [];
 
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (Array.isArray(data?.data)) {
-    return data.data;
+  if (items.length > 0) {
+    return items;
   }
 
   for (const key of keys) {
-    if (Array.isArray(data?.[key])) {
-      return data[key];
+    if (Array.isArray(responseBody?.[key])) {
+      return responseBody[key];
     }
 
-    if (Array.isArray(data?.data?.[key])) {
-      return data.data[key];
+    if (Array.isArray(responseBody?.data?.[key])) {
+      return responseBody.data[key];
     }
   }
 
-  return [];
+  return items;
 };
 
 const normalizeMenuItem = (item) => ({
@@ -390,11 +392,21 @@ export default function Banners() {
         api.get("/api/owner/menu-items"),
       ]);
 
-      const nextBanners = getListFromResponse(bannersResponse, ["banners"]).map(normalizeBanner);
+      const bannersResponseBody = bannersResponse?.data;
+      const rawBanners = getListFromResponseBody(bannersResponseBody, ["banners"]);
+      console.log("Owner panel API response:", bannersResponseBody);
+      console.log("Parsed items:", rawBanners.length);
+      const nextBanners = rawBanners.map(normalizeBanner);
       const activeBanners = nextBanners.filter((banner) => banner.isActive !== false);
-      const nextMenuItems = getListFromResponse(menuItemsResponse, ["menuItems", "items"]).map(
-        normalizeMenuItem
-      );
+
+      const menuItemsResponseBody = menuItemsResponse?.data;
+      const rawMenuItems = getListFromResponseBody(menuItemsResponseBody, [
+        "menuItems",
+        "items",
+      ]);
+      console.log("Owner panel API response:", menuItemsResponseBody);
+      console.log("Parsed items:", rawMenuItems.length);
+      const nextMenuItems = rawMenuItems.map(normalizeMenuItem);
 
       setBanners(activeBanners);
       setMenuItems(nextMenuItems);

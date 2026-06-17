@@ -1,67 +1,137 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, shadow } from "../theme/theme";
+import Ionicons from "react-native-vector-icons/Ionicons";
+import { colors, radius, shadow, spacing, typography } from "../theme/theme";
+
+const TONES = {
+  neutral: {
+    iconBg: "#f4ede5",
+    icon: colors.textSoft,
+    accent: colors.borderStrong,
+  },
+  primary: {
+    iconBg: colors.primarySoft,
+    icon: colors.primary,
+    accent: colors.primary,
+  },
+  gold: {
+    iconBg: colors.goldSoft,
+    icon: colors.gold,
+    accent: colors.gold,
+  },
+  success: {
+    iconBg: colors.successSoft,
+    icon: colors.success,
+    accent: colors.success,
+  },
+  warning: {
+    iconBg: colors.warningSoft,
+    icon: colors.warning,
+    accent: colors.warning,
+  },
+  danger: {
+    iconBg: colors.dangerSoft,
+    icon: colors.danger,
+    accent: colors.danger,
+  },
+  info: {
+    iconBg: colors.infoSoft,
+    icon: colors.info,
+    accent: colors.info,
+  },
+};
 
 export default function DashboardCard({
   title,
   value,
   subtitle,
   onPress,
-  tone = "default",
+  tone = "neutral",
+  icon = "grid-outline",
+  kind = "metric",
+  style,
 }) {
-  if (onPress) {
-    return (
-      <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
-        <View style={[styles.gradient, styles[tone] || styles.default]}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.value}>{value}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+  const palette = TONES[tone] || TONES.neutral;
+  const isAction = kind === "action";
+  const content = (
+    <View
+      style={[
+        styles.card,
+        isAction ? styles.actionCard : styles.metricCard,
+        { borderLeftColor: palette.accent },
+        style,
+      ]}
+    >
+      <View style={isAction ? styles.actionRow : styles.metricTopRow}>
+        <View style={[styles.iconWrap, { backgroundColor: palette.iconBg }]}>
+          <Ionicons name={icon} size={20} color={palette.icon} />
         </View>
-      </Pressable>
-    );
-  }
+        {isAction ? (
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        ) : null}
+      </View>
 
-  return (
-    <View style={styles.card}>
-      <View style={[styles.gradient, styles[tone] || styles.default]}>
+      <View style={styles.textWrap}>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.value}>{value}</Text>
+        {value ? <Text style={styles.value}>{value}</Text> : null}
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={styles.pressable}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
-  card: {
+  pressable: {
     flex: 1,
     minWidth: "47%",
-    borderRadius: radius.lg,
-    overflow: "hidden",
-    ...shadow,
   },
-  gradient: {
-    minHeight: 136,
+  card: {
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    borderLeftWidth: 4,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...shadow,
+  },
+  metricCard: {
+    minHeight: 124,
+  },
+  actionCard: {
+    minHeight: 96,
+  },
+  metricTopRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
   },
-  default: {
-    backgroundColor: "rgba(25,19,19,0.95)",
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  accent: {
-    backgroundColor: "rgba(93,48,27,0.95)",
-  },
-  success: {
-    backgroundColor: "rgba(22,67,48,0.95)",
-  },
-  gold: {
-    backgroundColor: "rgba(87,60,18,0.96)",
+  textWrap: {
+    gap: spacing.xs,
   },
   title: {
-    color: "#d9cbb8",
-    fontSize: 14,
+    color: colors.textSoft,
+    fontSize: typography.small,
     fontWeight: "600",
   },
   value: {
@@ -70,10 +140,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   subtitle: {
-    color: "#ecdcc2",
-    fontSize: 12,
+    color: colors.muted,
+    fontSize: typography.small,
+    lineHeight: 18,
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.92,
   },
 });

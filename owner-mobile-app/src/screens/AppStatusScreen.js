@@ -9,14 +9,22 @@ import {
   Text,
   View,
 } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect } from "@react-navigation/native";
 import { fetchAppStatus, updateAppStatus } from "../api/ownerApi";
 import { useSocket } from "../context/SocketContext";
-import { colors, radius, shadow, spacing } from "../theme/theme";
+import {
+  colors,
+  layout,
+  radius,
+  shadow,
+  spacing,
+  typography,
+} from "../theme/theme";
 import { formatDateTime } from "../utils/formatters";
 
 export default function AppStatusScreen() {
-  const { lastAppStatusEvent } = useSocket();
+  const { lastAppStatusEvent, isConnected } = useSocket();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,7 +73,7 @@ export default function AppStatusScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -75,32 +83,55 @@ export default function AppStatusScreen() {
       style={styles.screen}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => {
-          setRefreshing(true);
-          void loadStatus();
-        }} tintColor={colors.gold} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            void loadStatus();
+          }}
+          tintColor={colors.primary}
+        />
       }
     >
-      <View style={styles.panel}>
-        <Text style={styles.title}>App Status</Text>
-        <Text style={styles.subtitle}>
-          Toggle whether customers can place orders from the customer app.
-        </Text>
-        <View style={styles.statusRow}>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={styles.statusLabel}>Current State</Text>
-            <Text style={styles.statusValue}>{status?.isActive ? "Active" : "Inactive"}</Text>
-            <Text style={styles.statusMessage}>{status?.message || "No message available"}</Text>
+      <View style={styles.heroCard}>
+        <View style={styles.heroTopRow}>
+          <View style={styles.iconWrap}>
+            <Ionicons name="radio-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.title}>App Status</Text>
+            <Text style={styles.subtitle}>
+              Control whether customers can place new orders.
+            </Text>
           </View>
           <Switch
             value={status?.isActive !== false}
             onValueChange={handleToggle}
             disabled={updating}
             thumbColor={colors.white}
-            trackColor={{ false: "#9b3e3e", true: "#37b77b" }}
+            trackColor={{ false: "#d1c4b8", true: colors.success }}
           />
         </View>
-        <Text style={styles.timestamp}>Updated: {formatDateTime(status?.updatedAt)}</Text>
+
+        <View style={styles.statusInfoCard}>
+          <Text style={styles.statusLabel}>Current State</Text>
+          <Text
+            style={[
+              styles.statusValue,
+              { color: status?.isActive ? colors.success : colors.danger },
+            ]}
+          >
+            {status?.isActive ? "Accepting orders" : "Orders paused"}
+          </Text>
+          <Text style={styles.statusMessage}>{status?.message || "No message available"}</Text>
+        </View>
+
+        <View style={styles.metaRow}>
+          <Text style={styles.metaText}>
+            Socket: {isConnected ? "Live connected" : "Socket disconnected"}
+          </Text>
+          <Text style={styles.metaText}>Updated: {formatDateTime(status?.updatedAt)}</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -118,48 +149,69 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: spacing.md,
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset + spacing.xxl,
   },
-  panel: {
-    backgroundColor: "rgba(20,16,16,0.96)",
-    borderRadius: radius.lg,
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 18,
-    gap: 12,
+    padding: spacing.xl,
+    gap: spacing.lg,
     ...shadow,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  iconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: typography.title,
     fontWeight: "800",
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.body,
   },
-  statusRow: {
-    flexDirection: "row",
-    gap: 16,
-    alignItems: "center",
+  statusInfoCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    padding: spacing.lg,
+    gap: spacing.xs,
   },
   statusLabel: {
-    color: "#d9c8ae",
-    fontSize: 12,
+    color: colors.textSoft,
+    fontSize: typography.tiny,
+    fontWeight: "700",
     textTransform: "uppercase",
   },
   statusValue: {
-    color: colors.text,
-    fontSize: 24,
+    fontSize: typography.section,
     fontWeight: "800",
   },
   statusMessage: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.small,
+    lineHeight: 19,
   },
-  timestamp: {
-    color: "#ffe9c2",
-    fontSize: 12,
-    fontWeight: "700",
+  metaRow: {
+    gap: spacing.xs,
+  },
+  metaText: {
+    color: colors.textSoft,
+    fontSize: typography.small,
+    fontWeight: "600",
   },
 });

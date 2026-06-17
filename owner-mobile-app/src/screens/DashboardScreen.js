@@ -1,27 +1,73 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import DashboardCard from "../components/DashboardCard";
 import { fetchAppStatus, fetchOrderStats, fetchOrders } from "../api/ownerApi";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
-import { colors, radius, shadow, spacing } from "../theme/theme";
+import {
+  colors,
+  getStatusPalette,
+  layout,
+  radius,
+  shadow,
+  spacing,
+  typography,
+} from "../theme/theme";
 import { computeOrderStats, formatCurrency, formatDateTime } from "../utils/formatters";
 
-const quickLinks = [
-  "Orders",
-  "Categories",
-  "Menu Items",
-  "Banners",
-  "App Status",
-  "Settings",
+const quickActions = [
+  {
+    title: "Orders",
+    subtitle: "Manage orders",
+    screen: "Orders",
+    icon: "receipt-outline",
+    tone: "primary",
+  },
+  {
+    title: "Menu",
+    subtitle: "Edit food items",
+    screen: "Menu Items",
+    icon: "restaurant-outline",
+    tone: "gold",
+  },
+  {
+    title: "Categories",
+    subtitle: "Food sections",
+    screen: "Categories",
+    icon: "layers-outline",
+    tone: "warning",
+  },
+  {
+    title: "Banners",
+    subtitle: "Home banners",
+    screen: "Banners",
+    icon: "images-outline",
+    tone: "info",
+  },
+  {
+    title: "App Status",
+    subtitle: "Open or close orders",
+    screen: "App Status",
+    icon: "radio-outline",
+    tone: "success",
+  },
+  {
+    title: "Settings",
+    subtitle: "Account settings",
+    screen: "Settings",
+    icon: "settings-outline",
+    tone: "neutral",
+  },
 ];
 
 export default function DashboardScreen() {
@@ -56,8 +102,8 @@ export default function DashboardScreen() {
           ? appStatusResult.value
           : { isActive: true, message: "" };
 
-      const orders = ordersResponse?.orders || [];
-      const derivedStats = computeOrderStats(orders);
+      const orders = (ordersResponse?.orders || []).slice(0, 5);
+      const derivedStats = computeOrderStats(ordersResponse?.orders || []);
 
       setStats({
         totalOrders: statsResponse?.totalOrders ?? derivedStats.totalOrders,
@@ -84,7 +130,6 @@ export default function DashboardScreen() {
         setError(loadError?.message || "Unable to load dashboard data right now.");
         setStats({});
         setRecentOrders([]);
-        setAppStatus({ isActive: true, message: "" });
       }
     } finally {
       setLoading(false);
@@ -109,15 +154,52 @@ export default function DashboardScreen() {
     }, [lastAppStatusEvent, lastOrderEvent, loadDashboard])
   );
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    void loadDashboard();
-  };
+  const summaryCards = useMemo(
+    () => [
+      {
+        title: "Total Orders",
+        value: String(stats?.totalOrders ?? 0),
+        icon: "receipt-outline",
+        tone: "primary",
+      },
+      {
+        title: "Pending",
+        value: String(stats?.pendingOrders ?? 0),
+        icon: "time-outline",
+        tone: "warning",
+      },
+      {
+        title: "Accepted",
+        value: String(stats?.acceptedOrders ?? 0),
+        icon: "checkmark-circle-outline",
+        tone: "success",
+      },
+      {
+        title: "Delivered",
+        value: String(stats?.deliveredOrders ?? 0),
+        icon: "cube-outline",
+        tone: "info",
+      },
+      {
+        title: "Cancelled",
+        value: String(stats?.cancelledOrders ?? 0),
+        icon: "close-circle-outline",
+        tone: "danger",
+      },
+      {
+        title: "Revenue",
+        value: formatCurrency(stats?.totalRevenue ?? 0),
+        icon: "wallet-outline",
+        tone: "gold",
+      },
+    ],
+    [stats]
+  );
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -129,91 +211,142 @@ export default function DashboardScreen() {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={handleRefresh}
-          tintColor={colors.gold}
+          onRefresh={() => {
+            setRefreshing(true);
+            void loadDashboard();
+          }}
+          tintColor={colors.primary}
         />
       }
     >
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Owner Overview</Text>
-        <Text style={styles.heroSubtitle}>
-          {owner?.name || "Owner"}, live backend connected and restaurant control at your
-          fingertips.
-        </Text>
-        <View style={styles.statusBanner}>
-          <Text style={styles.statusLabel}>App Status</Text>
-          <Text style={styles.statusValue}>{appStatus?.isActive ? "Active" : "Inactive"}</Text>
-          <Text style={styles.statusMessage}>{appStatus?.message || "No status message"}</Text>
-          <Text style={styles.socketState}>
-            {isConnected ? "Socket connected" : "Socket disconnected"}
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Text style={styles.headerTitle}>Daawat Owner</Text>
+          <Text style={styles.headerSubtitle}>Manage restaurant operations</Text>
+        </View>
+        <Pressable style={styles.settingsButton} onPress={() => navigation.navigate("Settings")}>
+          <Ionicons name="settings-outline" size={20} color={colors.primary} />
+        </Pressable>
+      </View>
+
+      <View style={styles.statusCard}>
+        <View style={styles.statusTopRow}>
+          <View>
+            <Text style={styles.statusLabel}>App Status</Text>
+            <Text style={styles.statusMessage}>{appStatus?.message || "No status message"}</Text>
+          </View>
+          <View
+            style={[
+              styles.statusPill,
+              appStatus?.isActive ? styles.activePill : styles.inactivePill,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusPillText,
+                { color: appStatus?.isActive ? colors.success : colors.danger },
+              ]}
+            >
+              {appStatus?.isActive ? "Active" : "Inactive"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.socketRow}>
+          <View style={[styles.socketDot, { backgroundColor: isConnected ? colors.success : colors.warning }]} />
+          <Text style={styles.socketText}>
+            {isConnected ? "Live connected" : "Socket disconnected"}
           </Text>
         </View>
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
 
-      <View style={styles.cardsRow}>
-        <DashboardCard title="Total Orders" value={String(stats?.totalOrders ?? 0)} />
-        <DashboardCard
-          title="Pending Orders"
-          value={String(stats?.pendingOrders ?? 0)}
-          tone="gold"
-        />
-      </View>
-      <View style={styles.cardsRow}>
-        <DashboardCard
-          title="Accepted Orders"
-          value={String(stats?.acceptedOrders ?? 0)}
-          tone="success"
-        />
-        <DashboardCard title="Delivered Orders" value={String(stats?.deliveredOrders ?? 0)} />
-      </View>
-      <View style={styles.cardsRow}>
-        <DashboardCard
-          title="Cancelled Orders"
-          value={String(stats?.cancelledOrders ?? 0)}
-          tone="accent"
-        />
-        <DashboardCard title="Total Revenue" value={formatCurrency(stats?.totalRevenue ?? 0)} />
-      </View>
+      {error ? (
+        <View style={styles.errorCard}>
+          <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Quick Navigation</Text>
-        <View style={styles.quickGrid}>
-          {quickLinks.map((screenName) => (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Today at a glance</Text>
+        <View style={styles.statsGrid}>
+          {summaryCards.map((card) => (
             <DashboardCard
-              key={screenName}
-              title={screenName}
-              value="Open"
-              subtitle="Manage now"
-              onPress={() => navigation.navigate(screenName)}
-              tone="accent"
+              key={card.title}
+              title={card.title}
+              value={card.value}
+              icon={card.icon}
+              tone={card.tone}
             />
           ))}
         </View>
       </View>
 
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Recent Orders</Text>
-        {(recentOrders || []).length === 0 ? (
-          <Text style={styles.emptyText}>No recent orders found.</Text>
-        ) : (
-          (recentOrders || []).slice(0, 5).map((order) => (
-            <View key={order?._id || order?.orderId} style={styles.recentOrder}>
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.recentOrderId}>Order #{order?.orderId || order?._id}</Text>
-                <Text style={styles.recentOrderMeta}>
-                  {order?.customerName || "Customer"} | {formatCurrency(order?.total ?? 0)}
-                </Text>
-                <Text style={styles.recentOrderMeta}>
-                  {formatDateTime(order?.createdAt)}
-                </Text>
-              </View>
-              <Text style={styles.recentOrderStatus}>
-                {order?.status || order?.orderStatus || "Unknown"}
-              </Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
+          {quickActions.map((action) => (
+            <DashboardCard
+              key={action.screen}
+              title={action.title}
+              subtitle={action.subtitle}
+              icon={action.icon}
+              tone={action.tone}
+              kind="action"
+              onPress={() => navigation.navigate(action.screen)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Recent Orders</Text>
+          <Pressable onPress={() => navigation.navigate("Orders")}>
+            <Text style={styles.linkText}>View all</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.ordersList}>
+          {recentOrders.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No recent orders available yet.</Text>
             </View>
-          ))
-        )}
+          ) : (
+            recentOrders.map((order) => {
+              const statusPalette = getStatusPalette(order?.status || order?.orderStatus);
+
+              return (
+                <View key={order?._id || order?.orderId} style={styles.orderCard}>
+                  <View style={styles.orderTopRow}>
+                    <View style={{ flex: 1, gap: spacing.xs }}>
+                      <Text style={styles.orderIdText}>Order #{order?.orderId || order?._id}</Text>
+                      <Text style={styles.orderCustomer}>{order?.customerName || "Customer"}</Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.orderStatusBadge,
+                        {
+                          backgroundColor: statusPalette.background,
+                          borderColor: statusPalette.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.orderStatusText, { color: statusPalette.text }]}>
+                        {order?.status || order?.orderStatus || "Unknown"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.orderBottomRow}>
+                    <Text style={styles.orderMeta}>{formatCurrency(order?.total ?? 0)}</Text>
+                    <Text style={styles.orderMeta}>{formatDateTime(order?.createdAt)}</Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -224,108 +357,197 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
   centered: {
     flex: 1,
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.background,
   },
-  hero: {
-    gap: 12,
+  content: {
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset + spacing.xxl,
+    gap: layout.sectionGap,
   },
-  heroTitle: {
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  headerTitle: {
     color: colors.text,
-    fontSize: 30,
+    fontSize: typography.title,
     fontWeight: "800",
   },
-  heroSubtitle: {
+  headerSubtitle: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.body,
   },
-  statusBanner: {
-    backgroundColor: "rgba(26,20,20,0.86)",
+  settingsButton: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(213,164,74,0.45)",
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 4,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
     ...shadow,
   },
-  statusLabel: {
-    color: "#d9c8ae",
-    fontSize: 12,
-    textTransform: "uppercase",
+  statusCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...shadow,
   },
-  statusValue: {
+  statusTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  statusLabel: {
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: typography.cardTitle,
+    fontWeight: "700",
   },
   statusMessage: {
     color: colors.muted,
-    fontSize: 13,
+    fontSize: typography.small,
+    marginTop: 4,
   },
-  socketState: {
-    color: "#ffe9c2",
-    fontSize: 12,
+  statusPill: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  activePill: {
+    backgroundColor: colors.successSoft,
+    borderColor: "#bfe5ce",
+  },
+  inactivePill: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: "#f3c2bc",
+  },
+  statusPillText: {
+    fontSize: typography.tiny,
     fontWeight: "700",
   },
-  errorText: {
-    color: "#ffb3b3",
-    fontSize: 13,
+  socketRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  socketDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radius.pill,
+  },
+  socketText: {
+    color: colors.textSoft,
+    fontSize: typography.small,
     fontWeight: "600",
   },
-  cardsRow: {
+  errorCard: {
     flexDirection: "row",
-    gap: 12,
-  },
-  panel: {
-    backgroundColor: "rgba(20,16,16,0.96)",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 12,
-    ...shadow,
+    borderColor: "#f2c3be",
+    backgroundColor: colors.dangerSoft,
+    padding: spacing.md,
   },
-  panelTitle: {
+  errorText: {
+    flex: 1,
+    color: colors.danger,
+    fontSize: typography.small,
+    fontWeight: "600",
+  },
+  section: {
+    gap: spacing.md,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sectionTitle: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: typography.section,
     fontWeight: "800",
   },
-  quickGrid: {
+  linkText: {
+    color: colors.primary,
+    fontSize: typography.small,
+    fontWeight: "700",
+  },
+  statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: spacing.md,
+  },
+  actionsGrid: {
+    gap: spacing.md,
+  },
+  ordersList: {
+    gap: spacing.md,
+  },
+  orderCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...shadow,
+  },
+  orderTopRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "flex-start",
+  },
+  orderIdText: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: "800",
+  },
+  orderCustomer: {
+    color: colors.textSoft,
+    fontSize: typography.small,
+  },
+  orderStatusBadge: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  orderStatusText: {
+    fontSize: typography.tiny,
+    fontWeight: "700",
+  },
+  orderBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  orderMeta: {
+    color: colors.muted,
+    fontSize: typography.tiny,
+    fontWeight: "600",
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
   },
   emptyText: {
     color: colors.muted,
-    fontSize: 14,
-  },
-  recentOrder: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 12,
-  },
-  recentOrderId: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  recentOrderMeta: {
-    color: colors.muted,
-    fontSize: 13,
-  },
-  recentOrderStatus: {
-    color: "#ffe9c2",
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: typography.small,
   },
 });

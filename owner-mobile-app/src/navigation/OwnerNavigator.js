@@ -1,6 +1,7 @@
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import LoginScreen from "../screens/LoginScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import OrdersScreen from "../screens/OrdersScreen";
@@ -10,35 +11,47 @@ import BannersScreen from "../screens/BannersScreen";
 import AppStatusScreen from "../screens/AppStatusScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import { useAuth } from "../context/AuthContext";
-import { colors, radius } from "../theme/theme";
+import { colors, radius, shadow, spacing, typography } from "../theme/theme";
 
 const Stack = createNativeStackNavigator();
 const logo = require("../../assets/branding/daawat-logo.png");
 
-const screenOptions = ({ navigation }) => ({
+const screenOptions = ({ navigation, route }) => ({
   headerStyle: {
     backgroundColor: colors.backgroundAlt,
   },
   headerTintColor: colors.text,
   headerTitleStyle: {
+    color: colors.text,
+    fontSize: typography.cardTitle,
     fontWeight: "700",
   },
+  headerShadowVisible: false,
   contentStyle: {
     backgroundColor: colors.background,
   },
-  headerShadowVisible: false,
-  headerRight: () => (
-    <Pressable style={styles.headerAction} onPress={() => navigation.navigate("Settings")}>
-      <Text style={styles.headerActionText}>Settings</Text>
-    </Pressable>
-  ),
+  headerBackTitleVisible: false,
+  headerRight:
+    route.name === "Settings"
+      ? undefined
+      : () => (
+          <Pressable
+            style={styles.headerAction}
+            onPress={() => navigation.navigate("Settings")}
+          >
+            <Ionicons name="settings-outline" size={18} color={colors.primary} />
+          </Pressable>
+        ),
 });
 
 const SplashScreen = () => (
   <View style={styles.splash}>
-    <Image source={logo} style={styles.logo} />
+    <View style={styles.splashLogoWrap}>
+      <Image source={logo} style={styles.logo} />
+    </View>
     <Text style={styles.splashTitle}>Daawat Owner</Text>
-    <ActivityIndicator color={colors.gold} size="large" />
+    <Text style={styles.splashSubtitle}>Loading restaurant dashboard</Text>
+    <ActivityIndicator color={colors.primary} size="large" />
   </View>
 );
 
@@ -54,13 +67,37 @@ export default function OwnerNavigator() {
       <Stack.Navigator>
         {isAuthenticated ? (
           <>
-            <Stack.Screen name="Dashboard" component={DashboardScreen} options={screenOptions} />
+            <Stack.Screen
+              name="Dashboard"
+              component={DashboardScreen}
+              options={screenOptions}
+            />
             <Stack.Screen name="Orders" component={OrdersScreen} options={screenOptions} />
-            <Stack.Screen name="Categories" component={CategoriesScreen} options={screenOptions} />
-            <Stack.Screen name="Menu Items" component={MenuItemsScreen} options={screenOptions} />
-            <Stack.Screen name="Banners" component={BannersScreen} options={screenOptions} />
-            <Stack.Screen name="App Status" component={AppStatusScreen} options={screenOptions} />
-            <Stack.Screen name="Settings" component={SettingsScreen} options={screenOptions} />
+            <Stack.Screen
+              name="Categories"
+              component={CategoriesScreen}
+              options={screenOptions}
+            />
+            <Stack.Screen
+              name="Menu Items"
+              component={MenuItemsScreen}
+              options={screenOptions}
+            />
+            <Stack.Screen
+              name="Banners"
+              component={BannersScreen}
+              options={screenOptions}
+            />
+            <Stack.Screen
+              name="App Status"
+              component={AppStatusScreen}
+              options={screenOptions}
+            />
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={screenOptions}
+            />
           </>
         ) : (
           <Stack.Screen
@@ -79,31 +116,42 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 20,
+    gap: spacing.md,
     backgroundColor: colors.background,
-    padding: 24,
+    padding: spacing.xxxl,
+  },
+  splashLogoWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    ...shadow,
   },
   splashTitle: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: typography.title,
+    fontWeight: "800",
     color: colors.text,
+  },
+  splashSubtitle: {
+    fontSize: typography.small,
+    color: colors.muted,
   },
   logo: {
-    width: 110,
-    height: 110,
-    borderRadius: radius.xl,
+    width: 82,
+    height: 82,
+    borderRadius: radius.lg,
   },
   headerAction: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(213,164,74,0.45)",
-    borderRadius: radius.pill,
-    backgroundColor: "rgba(213,164,74,0.12)",
-  },
-  headerActionText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "700",
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow,
   },
 });

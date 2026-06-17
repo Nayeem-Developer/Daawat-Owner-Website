@@ -21,7 +21,14 @@ import {
   updateCategory,
   uploadImage,
 } from "../api/ownerApi";
-import { colors, radius, shadow, spacing } from "../theme/theme";
+import {
+  colors,
+  layout,
+  radius,
+  shadowStrong,
+  spacing,
+  typography,
+} from "../theme/theme";
 
 const createInitialForm = () => ({
   name: "",
@@ -55,7 +62,7 @@ export default function CategoriesScreen() {
   const loadCategories = useCallback(async () => {
     try {
       const response = await fetchCategories();
-      setCategories(response.map(normalizeCategory));
+      setCategories((response || []).map(normalizeCategory));
     } catch (error) {
       Alert.alert("Categories", error?.message || "Failed to load categories");
     } finally {
@@ -70,11 +77,6 @@ export default function CategoriesScreen() {
       void loadCategories();
     }, [loadCategories])
   );
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    void loadCategories();
-  };
 
   const handleOpenCreate = () => {
     setEditingCategory(null);
@@ -166,7 +168,7 @@ export default function CategoriesScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -175,18 +177,35 @@ export default function CategoriesScreen() {
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void loadCategories();
+            }}
+            tintColor={colors.primary}
+          />
+        }
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Categories</Text>
-          <Text style={styles.subtitle}>Show, add, edit, and delete menu categories.</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.title}>Categories</Text>
+            <Text style={styles.subtitle}>Group menu items into clean food sections.</Text>
+          </View>
+          <AppButton
+            label="Add"
+            leftIcon="add-outline"
+            onPress={handleOpenCreate}
+            fullWidth={false}
+          />
         </View>
-
-        <AppButton label="+ Add Category" onPress={handleOpenCreate} />
 
         <View style={styles.list}>
           {categories.length === 0 ? (
-            <Text style={styles.emptyText}>No categories found.</Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No categories found.</Text>
+            </View>
           ) : (
             categories.map((category) => (
               <CategoryCard
@@ -200,7 +219,12 @@ export default function CategoriesScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
@@ -216,22 +240,33 @@ export default function CategoriesScreen() {
 
               <AppButton
                 label={form.imageAsset || form.imageUrl ? "Change Image" : "Upload Image"}
-                variant="ghost"
+                leftIcon="image-outline"
+                variant="secondary"
                 onPress={handlePickImage}
               />
 
               {form.imageAsset ? (
-                <Text style={styles.previewText}>Selected: {form.imageAsset.fileName || "category-image"}</Text>
+                <Text style={styles.previewText}>
+                  Selected: {form.imageAsset.fileName || "category-image"}
+                </Text>
               ) : form.imageUrl ? (
                 <Text style={styles.previewText}>Current image available</Text>
               ) : null}
 
               <View style={styles.modalActions}>
-                <AppButton label="Cancel" variant="ghost" onPress={() => setModalVisible(false)} />
                 <AppButton
-                  label={saving ? "Saving..." : "Save Category"}
+                  label="Cancel"
+                  variant="ghost"
+                  onPress={() => setModalVisible(false)}
+                  fullWidth={false}
+                  style={styles.modalAction}
+                />
+                <AppButton
+                  label={saving ? "Saving..." : "Save"}
                   onPress={handleSave}
                   loading={saving}
+                  fullWidth={false}
+                  style={styles.modalAction}
                 />
               </View>
             </View>
@@ -254,58 +289,72 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: spacing.md,
-    gap: 14,
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset + spacing.xxl,
+    gap: spacing.lg,
   },
-  header: {
-    gap: 8,
+  headerRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: typography.title,
     fontWeight: "800",
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.body,
   },
   list: {
-    gap: 12,
+    gap: spacing.md,
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
   },
   emptyText: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.small,
     textAlign: "center",
-    marginTop: 30,
   },
   modalBackdrop: {
     flex: 1,
     backgroundColor: colors.overlay,
     justifyContent: "center",
-    padding: 16,
+    padding: layout.screenPadding,
   },
   modalCard: {
-    backgroundColor: colors.panel,
+    backgroundColor: colors.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 18,
-    gap: 14,
-    ...shadow,
+    padding: spacing.xl,
+    gap: spacing.lg,
+    ...shadowStrong,
   },
   modalTitle: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: typography.section,
     fontWeight: "800",
   },
   modalBody: {
-    gap: 12,
+    gap: spacing.md,
   },
   previewText: {
     color: colors.muted,
-    fontSize: 13,
+    fontSize: typography.small,
   },
   modalActions: {
-    gap: 10,
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  modalAction: {
+    flex: 1,
   },
 });

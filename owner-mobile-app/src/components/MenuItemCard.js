@@ -1,6 +1,7 @@
 import { Image, StyleSheet, Text, View } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import AppButton from "./AppButton";
-import { colors, radius, shadow } from "../theme/theme";
+import { colors, getStatusPalette, radius, shadow, spacing, typography } from "../theme/theme";
 import { formatCurrency } from "../utils/formatters";
 
 export default function MenuItemCard({
@@ -10,55 +11,87 @@ export default function MenuItemCard({
   onToggleAvailability,
   pending = false,
 }) {
+  const availability = getStatusPalette(item?.isAvailable ? "Accepted" : "Rejected");
+
   return (
     <View style={styles.card}>
       {item?.imageUrl ? (
         <Image source={{ uri: item.imageUrl }} style={styles.image} />
       ) : (
         <View style={styles.imageFallback}>
-          <Text style={styles.imageFallbackText}>{(item?.name || "M").slice(0, 1).toUpperCase()}</Text>
+          <Text style={styles.imageFallbackText}>
+            {(item?.name || "M").slice(0, 1).toUpperCase()}
+          </Text>
         </View>
       )}
 
       <View style={styles.content}>
-        <Text style={styles.name}>{item?.name}</Text>
-        <Text style={styles.price}>{formatCurrency(item?.price || 0)}</Text>
-        <Text style={styles.meta}>{item?.categoryName || "No category"}</Text>
+        <View style={styles.topRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.name}>{item?.name || "Unnamed Item"}</Text>
+            <Text style={styles.meta}>{item?.categoryName || "No category"}</Text>
+          </View>
+          <Text style={styles.price}>{formatCurrency(item?.price || 0)}</Text>
+        </View>
+
         <View style={styles.badges}>
           <View style={[styles.badge, item?.isVeg ? styles.vegBadge : styles.nonVegBadge]}>
-            <Text style={styles.badgeText}>{item?.isVeg ? "Veg" : "Non-Veg"}</Text>
+            <Ionicons
+              name={item?.isVeg ? "leaf-outline" : "flame-outline"}
+              size={13}
+              color={item?.isVeg ? colors.success : colors.warning}
+            />
+            <Text
+              style={[
+                styles.badgeText,
+                { color: item?.isVeg ? colors.success : colors.warning },
+              ]}
+            >
+              {item?.isVeg ? "Veg" : "Non-Veg"}
+            </Text>
           </View>
+
           <View
             style={[
               styles.badge,
-              item?.isAvailable ? styles.availableBadge : styles.unavailableBadge,
+              {
+                backgroundColor: availability.background,
+                borderColor: availability.border,
+              },
             ]}
           >
-            <Text style={styles.badgeText}>{item?.isAvailable ? "Available" : "Unavailable"}</Text>
+            <Ionicons name={availability.icon} size={13} color={availability.text} />
+            <Text style={[styles.badgeText, { color: availability.text }]}>
+              {item?.isAvailable ? "Available" : "Unavailable"}
+            </Text>
           </View>
         </View>
+
         <View style={styles.actions}>
           <AppButton
             label="Edit"
-            variant="ghost"
+            variant="secondary"
+            size="sm"
+            leftIcon="create-outline"
             onPress={onEdit}
             fullWidth={false}
-            style={styles.actionButton}
           />
           <AppButton
-            label={item?.isAvailable ? "Mark Unavailable" : "Mark Available"}
-            variant={item?.isAvailable ? "danger" : "success"}
+            label={item?.isAvailable ? "Hide" : "Show"}
+            variant={item?.isAvailable ? "warning" : "success"}
+            size="sm"
+            leftIcon={item?.isAvailable ? "eye-off-outline" : "eye-outline"}
             onPress={onToggleAvailability}
             loading={pending}
             fullWidth={false}
-            style={styles.actionButton}
           />
           <AppButton
             label="Delete"
             variant="ghost"
+            size="sm"
+            leftIcon="trash-outline"
             onPress={onDelete}
             fullWidth={false}
-            style={styles.actionButton}
           />
         </View>
       </View>
@@ -68,84 +101,86 @@ export default function MenuItemCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "rgba(35,26,26,0.9)",
+    flexDirection: "row",
+    gap: spacing.md,
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(213,164,74,0.2)",
+    borderColor: colors.border,
+    padding: spacing.md,
     ...shadow,
   },
   image: {
-    width: "100%",
-    height: 180,
+    width: 92,
+    height: 92,
+    borderRadius: radius.md,
   },
   imageFallback: {
-    width: "100%",
-    height: 180,
+    width: 92,
+    height: 92,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(160,39,46,0.45)",
+    backgroundColor: colors.goldSoft,
   },
   imageFallbackText: {
-    color: colors.text,
-    fontSize: 34,
+    color: colors.gold,
+    fontSize: 30,
     fontWeight: "800",
   },
   content: {
-    padding: 14,
-    gap: 8,
+    flex: 1,
+    gap: spacing.sm,
+  },
+  topRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    alignItems: "flex-start",
   },
   name: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: typography.cardTitle,
     fontWeight: "700",
   },
   price: {
-    color: "#f9e8ca",
-    fontSize: 16,
-    fontWeight: "700",
+    color: colors.primary,
+    fontSize: typography.cardTitle,
+    fontWeight: "800",
   },
   meta: {
     color: colors.muted,
-    fontSize: 13,
+    fontSize: typography.small,
   },
   badges: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.sm,
   },
   badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: typography.tiny,
     fontWeight: "700",
-    color: colors.text,
   },
   vegBadge: {
-    borderColor: "rgba(46,173,105,0.58)",
-    backgroundColor: "rgba(46,173,105,0.14)",
+    borderColor: "#bfe5ce",
+    backgroundColor: colors.successSoft,
   },
   nonVegBadge: {
-    borderColor: "rgba(196,94,66,0.6)",
-    backgroundColor: "rgba(196,94,66,0.14)",
-  },
-  availableBadge: {
-    borderColor: "rgba(34,150,95,0.6)",
-    backgroundColor: "rgba(34,150,95,0.14)",
-  },
-  unavailableBadge: {
-    borderColor: "rgba(201,66,66,0.65)",
-    backgroundColor: "rgba(201,66,66,0.16)",
+    borderColor: "#f1c99e",
+    backgroundColor: colors.warningSoft,
   },
   actions: {
-    gap: 8,
-    marginTop: 4,
-  },
-  actionButton: {
-    width: "100%",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

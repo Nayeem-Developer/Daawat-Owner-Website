@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -24,7 +23,14 @@ import {
   updateMenuItem,
   uploadImage,
 } from "../api/ownerApi";
-import { colors, radius, shadow, spacing } from "../theme/theme";
+import {
+  colors,
+  layout,
+  radius,
+  shadowStrong,
+  spacing,
+  typography,
+} from "../theme/theme";
 
 const createInitialForm = (categoryId = "") => ({
   name: "",
@@ -46,7 +52,8 @@ const normalizeItem = (item) => ({
   ...item,
   _id: item?._id || item?.id || "",
   categoryId: item?.categoryId?._id || item?.category?._id || item?.categoryId || "",
-  categoryName: item?.categoryId?.name || item?.category?.name || item?.categoryName || "Uncategorized",
+  categoryName:
+    item?.categoryId?.name || item?.category?.name || item?.categoryName || "Uncategorized",
   imageUrl: item?.imageUrl || item?.image || "",
   isVeg: item?.isVeg === true,
   isAvailable: item?.isAvailable !== false,
@@ -72,8 +79,8 @@ export default function MenuItemsScreen() {
         fetchMenuItems(),
       ]);
 
-      setCategories(categoriesResponse.map(normalizeCategory));
-      setItems(itemsResponse.map(normalizeItem));
+      setCategories((categoriesResponse || []).map(normalizeCategory));
+      setItems((itemsResponse || []).map(normalizeItem));
     } catch (error) {
       Alert.alert("Menu Items", error?.message || "Failed to load menu items");
     } finally {
@@ -96,7 +103,7 @@ export default function MenuItemsScreen() {
         item.name,
         item.categoryName,
         String(item.price),
-        item.isVeg ? "veg" : "non-veg",
+        item.isVeg ? "veg" : "non veg",
       ]
         .join(" ")
         .toLowerCase();
@@ -114,11 +121,6 @@ export default function MenuItemsScreen() {
         })),
     }));
   }, [categories, items, search]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    void loadData();
-  };
 
   const handleOpenCreate = () => {
     setEditingItem(null);
@@ -240,7 +242,7 @@ export default function MenuItemsScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -249,30 +251,50 @@ export default function MenuItemsScreen() {
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void loadData();
+            }}
+            tintColor={colors.primary}
+          />
+        }
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Menu Items</Text>
-          <Text style={styles.subtitle}>Manage items category-wise, including price and availability.</Text>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search menu items..."
-            placeholderTextColor={colors.muted}
-            style={styles.searchInput}
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.title}>Menu Items</Text>
+            <Text style={styles.subtitle}>
+              Edit pricing, visibility, and product details category-wise.
+            </Text>
+          </View>
+          <AppButton
+            label="Add"
+            leftIcon="add-outline"
+            onPress={handleOpenCreate}
+            fullWidth={false}
           />
         </View>
 
-        <AppButton label="+ Add Menu Item" onPress={handleOpenCreate} />
+        <AppInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search menu items..."
+        />
 
         {groupedItems.length === 0 ? (
-          <Text style={styles.emptyText}>No categories available.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No categories available.</Text>
+          </View>
         ) : (
           groupedItems.map((category) => (
             <View key={category._id} style={styles.section}>
               <Text style={styles.sectionTitle}>{category.name}</Text>
               {category.items.length === 0 ? (
-                <Text style={styles.emptyText}>No items in this category.</Text>
+                <View style={styles.emptyCard}>
+                  <Text style={styles.emptyText}>No items in this category.</Text>
+                </View>
               ) : (
                 <View style={styles.cards}>
                   {category.items.map((item) => (
@@ -292,11 +314,18 @@ export default function MenuItemsScreen() {
         )}
       </ScrollView>
 
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalBackdrop}>
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>{editingItem ? "Edit Menu Item" : "Add Menu Item"}</Text>
+              <Text style={styles.modalTitle}>
+                {editingItem ? "Edit Menu Item" : "Add Menu Item"}
+              </Text>
               <AppInput
                 label="Item Name"
                 value={form.name}
@@ -313,7 +342,9 @@ export default function MenuItemsScreen() {
               <AppInput
                 label="Description"
                 value={form.description}
-                onChangeText={(value) => setForm((current) => ({ ...current, description: value }))}
+                onChangeText={(value) =>
+                  setForm((current) => ({ ...current, description: value }))
+                }
                 placeholder="Optional item note"
                 multiline
               />
@@ -325,6 +356,7 @@ export default function MenuItemsScreen() {
                     key={category._id}
                     label={category.name}
                     variant={form.categoryId === category._id ? "primary" : "chip"}
+                    size="sm"
                     onPress={() => setForm((current) => ({ ...current, categoryId: category._id }))}
                     fullWidth={false}
                   />
@@ -336,12 +368,14 @@ export default function MenuItemsScreen() {
                 <AppButton
                   label="Veg"
                   variant={form.isVeg ? "success" : "chip"}
+                  size="sm"
                   onPress={() => setForm((current) => ({ ...current, isVeg: true }))}
                   fullWidth={false}
                 />
                 <AppButton
                   label="Non-Veg"
-                  variant={!form.isVeg ? "danger" : "chip"}
+                  variant={!form.isVeg ? "warning" : "chip"}
+                  size="sm"
                   onPress={() => setForm((current) => ({ ...current, isVeg: false }))}
                   fullWidth={false}
                 />
@@ -351,26 +385,43 @@ export default function MenuItemsScreen() {
                 <Text style={styles.fieldLabel}>Available</Text>
                 <Switch
                   value={form.isAvailable}
-                  onValueChange={(value) => setForm((current) => ({ ...current, isAvailable: value }))}
+                  onValueChange={(value) =>
+                    setForm((current) => ({ ...current, isAvailable: value }))
+                  }
                   thumbColor={colors.white}
-                  trackColor={{ false: "#9b3e3e", true: "#37b77b" }}
+                  trackColor={{ false: "#d1c4b8", true: colors.success }}
                 />
               </View>
 
               <AppButton
                 label={form.imageAsset || form.imageUrl ? "Change Image" : "Upload Image"}
-                variant="ghost"
+                variant="secondary"
+                leftIcon="image-outline"
                 onPress={handlePickImage}
               />
               {form.imageAsset ? (
-                <Text style={styles.previewText}>Selected: {form.imageAsset.fileName || "item-image"}</Text>
+                <Text style={styles.previewText}>
+                  Selected: {form.imageAsset.fileName || "item-image"}
+                </Text>
               ) : form.imageUrl ? (
                 <Text style={styles.previewText}>Current image available</Text>
               ) : null}
 
               <View style={styles.modalActions}>
-                <AppButton label="Cancel" variant="ghost" onPress={() => setModalVisible(false)} />
-                <AppButton label={saving ? "Saving..." : "Save Item"} onPress={handleSave} loading={saving} />
+                <AppButton
+                  label="Cancel"
+                  variant="ghost"
+                  onPress={() => setModalVisible(false)}
+                  fullWidth={false}
+                  style={styles.modalAction}
+                />
+                <AppButton
+                  label={saving ? "Saving..." : "Save"}
+                  onPress={handleSave}
+                  loading={saving}
+                  fullWidth={false}
+                  style={styles.modalAction}
+                />
               </View>
             </View>
           </ScrollView>
@@ -392,45 +443,45 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: spacing.md,
-    gap: 14,
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset + spacing.xxl,
+    gap: spacing.lg,
   },
-  header: {
-    gap: 8,
+  headerRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: typography.title,
     fontWeight: "800",
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 14,
-  },
-  searchInput: {
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
-    color: colors.text,
-    paddingHorizontal: 14,
+    fontSize: typography.body,
   },
   section: {
-    gap: 12,
-    paddingTop: 6,
+    gap: spacing.md,
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: typography.section,
     fontWeight: "800",
   },
   cards: {
-    gap: 12,
+    gap: spacing.md,
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
   },
   emptyText: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.small,
   },
   modalBackdrop: {
     flex: 1,
@@ -439,31 +490,31 @@ const styles = StyleSheet.create({
   modalScroll: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 16,
+    padding: layout.screenPadding,
   },
   modalCard: {
-    backgroundColor: colors.panel,
+    backgroundColor: colors.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 18,
-    gap: 12,
-    ...shadow,
+    padding: spacing.xl,
+    gap: spacing.md,
+    ...shadowStrong,
   },
   modalTitle: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: typography.section,
     fontWeight: "800",
   },
   fieldLabel: {
-    color: colors.text,
-    fontSize: 14,
+    color: colors.textSoft,
+    fontSize: typography.small,
     fontWeight: "600",
   },
   choiceWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.sm,
   },
   switchRow: {
     flexDirection: "row",
@@ -472,10 +523,14 @@ const styles = StyleSheet.create({
   },
   previewText: {
     color: colors.muted,
-    fontSize: 13,
+    fontSize: typography.small,
   },
   modalActions: {
-    gap: 10,
-    marginTop: 6,
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  modalAction: {
+    flex: 1,
   },
 });

@@ -8,10 +8,18 @@ import {
   Text,
   View,
 } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import { useAuth } from "../context/AuthContext";
-import { colors, radius, shadow } from "../theme/theme";
+import {
+  colors,
+  layout,
+  radius,
+  shadowStrong,
+  spacing,
+  typography,
+} from "../theme/theme";
 
 const logo = require("../../assets/branding/daawat-logo.png");
 
@@ -60,39 +68,51 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.card}>
-            <Image source={logo} style={styles.logo} />
-            <Text style={styles.title}>Owner Login</Text>
-            <Text style={styles.subtitle}>
-              Sign in to manage Daawat orders, menu, banners, and app status.
-            </Text>
-
-            <View style={styles.form}>
-              <AppInput
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="owner@daawat.com"
-                keyboardType="email-address"
-              />
-              <AppInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                secureTextEntry={!showPassword}
-                rightText={showPassword ? "Hide" : "Show"}
-                onRightTextPress={() => setShowPassword((current) => !current)}
-              />
-
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              <AppButton
-                label={loading ? "Signing In..." : "Login"}
-                onPress={handleLogin}
-                loading={loading}
-              />
+          <View style={styles.brandBlock}>
+            <View style={styles.logoWrap}>
+              <Image source={logo} style={styles.logo} />
             </View>
+            <View style={styles.brandText}>
+              <Text style={styles.eyebrow}>Restaurant Admin</Text>
+              <Text style={styles.title}>Daawat Owner</Text>
+              <Text style={styles.subtitle}>
+                Sign in to manage orders, menu, banners, and restaurant availability.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <AppInput
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="daawatbiryani123@gmail.com"
+              keyboardType="email-address"
+            />
+            <AppInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              secureTextEntry={!showPassword}
+              rightText={showPassword ? "Hide" : "Show"}
+              onRightTextPress={() => setShowPassword((current) => !current)}
+            />
+
+            {error ? (
+              <View style={styles.errorCard}>
+                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <AppButton
+              label={loading ? "Signing In..." : "Login"}
+              leftIcon="log-in-outline"
+              onPress={handleLogin}
+              loading={loading}
+              size="lg"
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -103,6 +123,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -110,42 +131,75 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 20,
-    paddingBottom: 40,
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset,
+    gap: spacing.xl,
   },
-  card: {
-    backgroundColor: "rgba(20,14,14,0.96)",
+  brandBlock: {
+    gap: spacing.lg,
+    alignItems: "center",
+  },
+  logoWrap: {
+    width: 96,
+    height: 96,
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 14,
-    ...shadow,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    ...shadowStrong,
   },
   logo: {
-    width: 110,
-    height: 110,
-    alignSelf: "center",
-    borderRadius: 18,
+    width: 82,
+    height: 82,
+    borderRadius: radius.lg,
+  },
+  brandText: {
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: typography.small,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
   title: {
     color: colors.text,
-    fontSize: 30,
+    fontSize: typography.hero,
     fontWeight: "800",
-    textAlign: "center",
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.body,
     textAlign: "center",
-    lineHeight: 21,
+    lineHeight: 22,
+    maxWidth: 320,
   },
-  form: {
-    gap: 14,
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.xl,
+    gap: spacing.lg,
+    ...shadowStrong,
   },
-  error: {
-    color: "#ff8c8c",
-    fontSize: 14,
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "#f2c3be",
+    backgroundColor: colors.dangerSoft,
+    padding: spacing.md,
+  },
+  errorText: {
+    flex: 1,
+    color: colors.danger,
+    fontSize: typography.small,
     fontWeight: "600",
+    lineHeight: 18,
   },
 });

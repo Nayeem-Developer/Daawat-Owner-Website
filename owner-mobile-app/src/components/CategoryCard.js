@@ -1,6 +1,7 @@
 import { Image, StyleSheet, Text, View } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import AppButton from "./AppButton";
-import { colors, radius, shadow } from "../theme/theme";
+import { colors, radius, shadow, spacing, typography } from "../theme/theme";
 
 export default function CategoryCard({ category, onEdit, onDelete }) {
   return (
@@ -9,19 +10,44 @@ export default function CategoryCard({ category, onEdit, onDelete }) {
         <Image source={{ uri: category.imageUrl }} style={styles.image} />
       ) : (
         <View style={styles.imageFallback}>
-          <Text style={styles.imageFallbackText}>{(category?.name || "C").slice(0, 1).toUpperCase()}</Text>
+          <Text style={styles.imageFallbackText}>
+            {(category?.name || "C").slice(0, 1).toUpperCase()}
+          </Text>
         </View>
       )}
+
       <View style={styles.content}>
-        <Text style={styles.name}>{category?.name || "Unnamed Category"}</Text>
-        <Text style={styles.meta}>
-          {Number.isFinite(Number(category?.itemCount))
-            ? `${Number(category.itemCount)} items`
-            : "Manage menu grouping"}
-        </Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.name}>{category?.name || "Unnamed Category"}</Text>
+            <Text style={styles.meta}>
+              {Number.isFinite(Number(category?.itemCount))
+                ? `${Number(category.itemCount)} items linked`
+                : "Organize related menu items"}
+            </Text>
+          </View>
+          <View style={styles.iconBadge}>
+            <Ionicons name="layers-outline" size={18} color={colors.primary} />
+          </View>
+        </View>
+
         <View style={styles.actions}>
-          <AppButton label="Edit" variant="ghost" onPress={onEdit} fullWidth={false} />
-          <AppButton label="Delete" variant="danger" onPress={onDelete} fullWidth={false} />
+          <AppButton
+            label="Edit"
+            variant="secondary"
+            size="sm"
+            leftIcon="create-outline"
+            onPress={onEdit}
+            fullWidth={false}
+          />
+          <AppButton
+            label="Delete"
+            variant="ghost"
+            size="sm"
+            leftIcon="trash-outline"
+            onPress={onDelete}
+            fullWidth={false}
+          />
         </View>
       </View>
     </View>
@@ -31,49 +57,62 @@ export default function CategoryCard({ category, onEdit, onDelete }) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
-    gap: 14,
-    backgroundColor: "rgba(34,22,22,0.95)",
+    gap: spacing.md,
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: 12,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(213,164,74,0.2)",
+    borderColor: colors.border,
     alignItems: "center",
     ...shadow,
   },
   image: {
-    width: 88,
-    height: 88,
-    borderRadius: 12,
+    width: 82,
+    height: 82,
+    borderRadius: radius.md,
   },
   imageFallback: {
-    width: 88,
-    height: 88,
-    borderRadius: 12,
+    width: 82,
+    height: 82,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(160,39,46,0.42)",
+    backgroundColor: colors.primarySoft,
   },
   imageFallbackText: {
-    color: colors.text,
+    color: colors.primary,
     fontSize: 28,
     fontWeight: "800",
   },
   content: {
     flex: 1,
-    gap: 8,
+    gap: spacing.md,
+  },
+  headerRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
   },
   name: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: typography.cardTitle,
     fontWeight: "700",
   },
   meta: {
-    color: "#e7d3b0",
-    fontSize: 13,
+    color: colors.muted,
+    fontSize: typography.small,
+  },
+  iconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
   },
   actions: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
     flexWrap: "wrap",
   },
 });

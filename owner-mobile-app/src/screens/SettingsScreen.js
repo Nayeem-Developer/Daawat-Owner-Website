@@ -1,10 +1,30 @@
 import { useMemo } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import AppButton from "../components/AppButton";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { API_BASE_URL } from "../config/apiConfig";
-import { colors, radius, shadow, spacing } from "../theme/theme";
+import {
+  colors,
+  layout,
+  radius,
+  shadow,
+  spacing,
+  typography,
+} from "../theme/theme";
+
+const InfoRow = ({ icon, label, value }) => (
+  <View style={styles.infoRow}>
+    <View style={styles.infoIconWrap}>
+      <Ionicons name={icon} size={16} color={colors.primary} />
+    </View>
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  </View>
+);
 
 export default function SettingsScreen() {
   const { owner, logout } = useAuth();
@@ -14,38 +34,45 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.panel}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Owner profile, session controls, and environment details.</Text>
-
-        <InfoRow label="Owner Name" value={owner?.name || "Daawat Owner"} />
-        <InfoRow label="Email" value={owner?.email || "Not available"} />
-        <InfoRow label="Socket" value={isConnected ? "Connected" : "Disconnected"} />
-        <InfoRow label="App Version" value={appVersion} />
-
-        {__DEV__ ? <InfoRow label="Backend URL" value={API_BASE_URL} /> : null}
-
-        <AppButton
-          label="Logout"
-          variant="danger"
-          onPress={() =>
-            Alert.alert("Logout", "Do you want to logout from the owner app?", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Logout", style: "destructive", onPress: () => void logout() },
-            ])
-          }
-        />
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {(owner?.name || "Daawat Owner").slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={styles.title}>{owner?.name || "Daawat Owner"}</Text>
+          <Text style={styles.subtitle}>Owner account and environment settings</Text>
+        </View>
       </View>
+
+      <View style={styles.panel}>
+        <InfoRow icon="mail-outline" label="Email" value={owner?.email || "Not available"} />
+        <InfoRow
+          icon="radio-outline"
+          label="Socket"
+          value={isConnected ? "Connected" : "Disconnected"}
+        />
+        <InfoRow icon="phone-portrait-outline" label="App Version" value={appVersion} />
+        {__DEV__ ? (
+          <InfoRow icon="cloud-outline" label="Backend URL" value={API_BASE_URL} />
+        ) : null}
+      </View>
+
+      <AppButton
+        label="Logout"
+        variant="danger"
+        leftIcon="log-out-outline"
+        onPress={() =>
+          Alert.alert("Logout", "Do you want to logout from the owner app?", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Logout", style: "destructive", onPress: () => void logout() },
+          ])
+        }
+      />
     </ScrollView>
   );
 }
-
-const InfoRow = ({ label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={styles.infoValue}>{value}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   screen: {
@@ -53,40 +80,75 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: spacing.md,
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset + spacing.xxl,
+    gap: spacing.lg,
   },
-  panel: {
-    backgroundColor: "rgba(20,16,16,0.96)",
-    borderRadius: radius.lg,
+  profileCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 18,
-    gap: 14,
+    padding: spacing.xl,
+    gap: spacing.md,
+    alignItems: "center",
     ...shadow,
   },
-  title: {
-    color: colors.text,
+  avatar: {
+    width: 68,
+    height: 68,
+    borderRadius: radius.xxl,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
+  },
+  avatarText: {
+    color: colors.primary,
     fontSize: 28,
     fontWeight: "800",
   },
+  title: {
+    color: colors.text,
+    fontSize: typography.title,
+    fontWeight: "800",
+    textAlign: "center",
+  },
   subtitle: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.body,
+    textAlign: "center",
+  },
+  panel: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...shadow,
   },
   infoRow: {
-    gap: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 12,
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
+  },
+  infoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
   },
   infoLabel: {
-    color: "#d9c8ae",
-    fontSize: 12,
+    color: colors.muted,
+    fontSize: typography.tiny,
+    fontWeight: "700",
     textTransform: "uppercase",
   },
   infoValue: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: typography.small,
     fontWeight: "600",
   },
 });

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -6,29 +6,69 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import AppButton from "../components/AppButton";
+import AppInput from "../components/AppInput";
 import OrderCard from "../components/OrderCard";
 import { fetchOrders, updateOrderStatus } from "../api/ownerApi";
 import { useSocket } from "../context/SocketContext";
-import { colors, radius, spacing } from "../theme/theme";
+import { colors, layout, spacing, typography } from "../theme/theme";
+
+const FILTERS = [
+  "All",
+  "Pending",
+  "Accepted",
+  "Out for Delivery",
+  "Delivered",
+  "Cancelled",
+];
+
+const matchesFilter = (order, activeFilter) => {
+  if (activeFilter === "All") {
+    return true;
+  }
+
+  const status = String(order?.status || order?.orderStatus || "").toLowerCase();
+
+  if (activeFilter === "Pending") {
+    return status === "placed" || status === "pending" || status.includes("pending");
+  }
+
+  if (activeFilter === "Accepted") {
+    return status === "accepted" || status === "confirmed";
+  }
+
+  if (activeFilter === "Out for Delivery") {
+    return status.includes("out for delivery");
+  }
+
+  if (activeFilter === "Delivered") {
+    return status.includes("delivered");
+  }
+
+  if (activeFilter === "Cancelled") {
+    return status.includes("cancel") || status.includes("reject") || status.includes("expired");
+  }
+
+  return true;
+};
 
 export default function OrdersScreen() {
   const { lastOrderEvent } = useSocket();
   const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All");
   const [pendingAction, setPendingAction] = useState({ orderId: "", status: "" });
   const lastHandledEvent = useRef(0);
 
   const loadOrders = useCallback(async () => {
     try {
       const response = await fetchOrders({ limit: 100 });
-      setOrders(response.orders);
+      setOrders(response.orders || []);
     } catch (error) {
       Alert.alert("Orders", error?.message || "Failed to load orders");
     } finally {
@@ -61,36 +101,25 @@ export default function OrdersScreen() {
     }, [lastOrderEvent, loadOrders])
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      const term = search.trim().toLowerCase();
-      if (!term) {
-        setFilteredOrders(orders);
-        return undefined;
-      }
+  const filteredOrders = useMemo(() => {
+    const term = search.trim().toLowerCase();
 
-      setFilteredOrders(
-        orders.filter((order) =>
-          [
-            order.customerName,
-            order.phone,
-            order.orderId,
-            order.addressText,
-            order.status,
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(term)
-        )
-      );
-      return undefined;
-    }, [orders, search])
-  );
+    return orders.filter((order) => {
+      const searchable = [
+        order?.customerName,
+        order?.phone,
+        order?.orderId,
+        order?.addressText,
+        order?.status,
+        ...(Array.isArray(order?.items) ? order.items.map((item) => item?.name || item?.itemName) : []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    void loadOrders();
-  };
+      return matchesFilter(order, activeFilter) && searchable.includes(term);
+    });
+  }, [activeFilter, orders, search]);
 
   const handleStatusUpdate = async (orderId, nextStatus) => {
     try {
@@ -110,25 +139,13 @@ export default function OrdersScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Orders</Text>
-        <Text style={styles.subtitle}>Latest orders first with live backend refresh.</Text>
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search by customer, phone, order ID, address, status..."
-          placeholderTextColor={colors.muted}
-          style={styles.searchInput}
-        />
-      </View>
-
       <FlatList
         data={filteredOrders}
         keyExtractor={(item) => item._id || item.orderId}
@@ -139,10 +156,45 @@ export default function OrdersScreen() {
             onStatusPress={(nextStatus) => handleStatusUpdate(item._id, nextStatus)}
           />
         )}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>Orders</Text>
+            <Text style={styles.subtitle}>Track every order and update statuses quickly.</Text>
+            <AppInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search customer, phone, order ID, address, item..."
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              {FILTERS.map((filter) => (
+                <AppButton
+                  key={filter}
+                  label={filter}
+                  variant={activeFilter === filter ? "primary" : "chip"}
+                  size="sm"
+                  onPress={() => setActiveFilter(filter)}
+                  fullWidth={false}
+                />
+              ))}
+            </ScrollView>
+            <Text style={styles.resultText}>{filteredOrders.length} orders</Text>
+          </View>
+        }
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.emptyText}>No orders found.</Text>}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void loadOrders();
+            }}
+            tintColor={colors.primary}
+          />
         }
       />
     </View>
@@ -161,36 +213,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   header: {
-    padding: spacing.md,
-    gap: 10,
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: typography.title,
     fontWeight: "800",
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.body,
   },
-  searchInput: {
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
-    color: colors.text,
-    paddingHorizontal: 14,
+  filterRow: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  resultText: {
+    color: colors.textSoft,
+    fontSize: typography.small,
+    fontWeight: "600",
   },
   listContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: 24,
-    gap: 14,
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset + spacing.xxl,
+    gap: spacing.md,
   },
   emptyText: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.small,
     textAlign: "center",
-    marginTop: 40,
+    marginTop: spacing.xxxl,
   },
 });

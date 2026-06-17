@@ -8,9 +8,9 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect } from "@react-navigation/native";
 import { launchImageLibrary } from "react-native-image-picker";
 import AppButton from "../components/AppButton";
@@ -23,7 +23,15 @@ import {
   updateBanner,
   uploadImage,
 } from "../api/ownerApi";
-import { colors, radius, shadow, spacing } from "../theme/theme";
+import {
+  colors,
+  layout,
+  radius,
+  shadow,
+  shadowStrong,
+  spacing,
+  typography,
+} from "../theme/theme";
 import { formatCurrency } from "../utils/formatters";
 
 const createInitialForm = () => ({
@@ -56,7 +64,6 @@ const normalizeItem = (item) => ({
   name: item?.name || "",
   categoryName: item?.categoryId?.name || item?.category?.name || item?.categoryName || "Category",
   price: Number(item?.price || 0),
-  isVeg: item?.isVeg === true,
 });
 
 export default function BannersScreen() {
@@ -77,8 +84,8 @@ export default function BannersScreen() {
         fetchMenuItems(),
       ]);
 
-      setBanners(bannersResponse.map(normalizeBanner));
-      setMenuItems(menuItemsResponse.map(normalizeItem));
+      setBanners((bannersResponse || []).map(normalizeBanner));
+      setMenuItems((menuItemsResponse || []).map(normalizeItem));
     } catch (error) {
       Alert.alert("Banners", error?.message || "Failed to load banners");
     } finally {
@@ -101,17 +108,12 @@ export default function BannersScreen() {
     }
 
     return menuItems.filter((item) =>
-      [item.name, item.categoryName, String(item.price), item.isVeg ? "veg" : "non-veg"]
+      [item.name, item.categoryName, String(item.price)]
         .join(" ")
         .toLowerCase()
         .includes(term)
     );
   }, [menuItems, search]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    void loadData();
-  };
 
   const handleOpenCreate = () => {
     setEditingBanner(null);
@@ -199,7 +201,7 @@ export default function BannersScreen() {
   };
 
   const handleDelete = (banner) => {
-    Alert.alert("Delete Banner", "Remove this banner from the mobile app home page?", [
+    Alert.alert("Delete Banner", "Remove this banner from the customer app home page?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -219,7 +221,7 @@ export default function BannersScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -228,31 +230,87 @@ export default function BannersScreen() {
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void loadData();
+            }}
+            tintColor={colors.primary}
+          />
+        }
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Banners</Text>
-          <Text style={styles.subtitle}>Manage promotional banners shown in the customer app.</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.title}>Banners</Text>
+            <Text style={styles.subtitle}>Control promotions shown in the customer app.</Text>
+          </View>
+          <AppButton
+            label="Add"
+            leftIcon="add-outline"
+            onPress={handleOpenCreate}
+            fullWidth={false}
+          />
         </View>
-
-        <AppButton label="+ Add Banner" onPress={handleOpenCreate} />
 
         <View style={styles.list}>
           {banners.length === 0 ? (
-            <Text style={styles.emptyText}>No banners found.</Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No banners found.</Text>
+            </View>
           ) : (
             banners.map((banner) => (
               <View key={banner._id} style={styles.bannerCard}>
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.bannerTitle}>{banner.title || "Untitled banner"}</Text>
-                  <Text style={styles.bannerMeta}>{banner.description || "No description"}</Text>
-                  <Text style={styles.bannerMeta}>Linked item: {banner.linkedMenuItemName}</Text>
-                  <Text style={styles.bannerMeta}>Display order: {banner.displayOrder}</Text>
-                  <Text style={styles.bannerMeta}>{banner.isActive ? "Active" : "Inactive"}</Text>
+                <View style={styles.bannerHeader}>
+                  <View style={styles.bannerIconWrap}>
+                    <Ionicons name="megaphone-outline" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1, gap: spacing.xs }}>
+                    <Text style={styles.bannerTitle}>{banner.title || "Untitled banner"}</Text>
+                    <Text style={styles.bannerMeta}>
+                      Linked item: {banner.linkedMenuItemName}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.bannerPill,
+                      banner.isActive ? styles.activePill : styles.inactivePill,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.bannerPillText,
+                        { color: banner.isActive ? colors.success : colors.danger },
+                      ]}
+                    >
+                      {banner.isActive ? "Active" : "Inactive"}
+                    </Text>
+                  </View>
                 </View>
+
+                <Text style={styles.bannerDescription}>
+                  {banner.description || "No description provided"}
+                </Text>
+                <Text style={styles.bannerMeta}>Display order: {banner.displayOrder}</Text>
+
                 <View style={styles.bannerActions}>
-                  <AppButton label="Edit" variant="ghost" onPress={() => handleOpenEdit(banner)} />
-                  <AppButton label="Delete" variant="danger" onPress={() => handleDelete(banner)} />
+                  <AppButton
+                    label="Edit"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon="create-outline"
+                    onPress={() => handleOpenEdit(banner)}
+                    fullWidth={false}
+                  />
+                  <AppButton
+                    label="Delete"
+                    variant="ghost"
+                    size="sm"
+                    leftIcon="trash-outline"
+                    onPress={() => handleDelete(banner)}
+                    fullWidth={false}
+                  />
                 </View>
               </View>
             ))
@@ -260,11 +318,18 @@ export default function BannersScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalBackdrop}>
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>{editingBanner ? "Edit Banner" : "Add Banner"}</Text>
+              <Text style={styles.modalTitle}>
+                {editingBanner ? "Edit Banner" : "Add Banner"}
+              </Text>
               <AppInput
                 label="Banner Title"
                 value={form.title}
@@ -274,17 +339,22 @@ export default function BannersScreen() {
               <AppInput
                 label="Description"
                 value={form.description}
-                onChangeText={(value) => setForm((current) => ({ ...current, description: value }))}
+                onChangeText={(value) =>
+                  setForm((current) => ({ ...current, description: value }))
+                }
                 placeholder="Hot and delicious menu picks for today"
                 multiline
               />
               <AppButton
                 label={form.imageAsset || form.imageUrl ? "Change Image" : "Upload Image"}
-                variant="ghost"
+                variant="secondary"
+                leftIcon="image-outline"
                 onPress={handlePickImage}
               />
               {form.imageAsset ? (
-                <Text style={styles.previewText}>Selected: {form.imageAsset.fileName || "banner-image"}</Text>
+                <Text style={styles.previewText}>
+                  Selected: {form.imageAsset.fileName || "banner-image"}
+                </Text>
               ) : form.imageUrl ? (
                 <Text style={styles.previewText}>Current image available</Text>
               ) : null}
@@ -300,8 +370,9 @@ export default function BannersScreen() {
                 {filteredMenuItems.map((item) => (
                   <AppButton
                     key={item._id}
-                    label={`${item.name} • ${formatCurrency(item.price)}`}
+                    label={`${item.name} | ${formatCurrency(item.price)}`}
                     variant={form.menuItemId === item._id ? "primary" : "chip"}
+                    size="sm"
                     onPress={() => setForm((current) => ({ ...current, menuItemId: item._id }))}
                     fullWidth={false}
                   />
@@ -311,13 +382,17 @@ export default function BannersScreen() {
               <AppInput
                 label="Button Text"
                 value={form.buttonText}
-                onChangeText={(value) => setForm((current) => ({ ...current, buttonText: value }))}
+                onChangeText={(value) =>
+                  setForm((current) => ({ ...current, buttonText: value }))
+                }
                 placeholder="Order Now"
               />
               <AppInput
                 label="Display Order"
                 value={form.displayOrder}
-                onChangeText={(value) => setForm((current) => ({ ...current, displayOrder: value }))}
+                onChangeText={(value) =>
+                  setForm((current) => ({ ...current, displayOrder: value }))
+                }
                 placeholder="0"
                 keyboardType="numeric"
               />
@@ -328,13 +403,25 @@ export default function BannersScreen() {
                   value={form.isActive}
                   onValueChange={(value) => setForm((current) => ({ ...current, isActive: value }))}
                   thumbColor={colors.white}
-                  trackColor={{ false: "#9b3e3e", true: "#37b77b" }}
+                  trackColor={{ false: "#d1c4b8", true: colors.success }}
                 />
               </View>
 
               <View style={styles.modalActions}>
-                <AppButton label="Cancel" variant="ghost" onPress={() => setModalVisible(false)} />
-                <AppButton label={saving ? "Saving..." : "Save Banner"} onPress={handleSave} loading={saving} />
+                <AppButton
+                  label="Cancel"
+                  variant="ghost"
+                  onPress={() => setModalVisible(false)}
+                  fullWidth={false}
+                  style={styles.modalAction}
+                />
+                <AppButton
+                  label={saving ? "Saving..." : "Save"}
+                  onPress={handleSave}
+                  loading={saving}
+                  fullWidth={false}
+                  style={styles.modalAction}
+                />
               </View>
             </View>
           </ScrollView>
@@ -356,48 +443,96 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: spacing.md,
-    gap: 14,
+    padding: layout.screenPadding,
+    paddingBottom: layout.bottomInset + spacing.xxl,
+    gap: spacing.lg,
   },
-  header: {
-    gap: 8,
+  headerRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: typography.title,
     fontWeight: "800",
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.body,
   },
   list: {
-    gap: 12,
+    gap: spacing.md,
   },
   bannerCard: {
-    backgroundColor: "rgba(35,26,26,0.94)",
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "rgba(213,164,74,0.25)",
-    padding: 16,
-    gap: 12,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.md,
     ...shadow,
+  },
+  bannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  bannerIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
   },
   bannerTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: typography.cardTitle,
     fontWeight: "700",
   },
   bannerMeta: {
     color: colors.muted,
-    fontSize: 13,
+    fontSize: typography.small,
+  },
+  bannerDescription: {
+    color: colors.textSoft,
+    fontSize: typography.small,
+    lineHeight: 19,
+  },
+  bannerPill: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  activePill: {
+    backgroundColor: colors.successSoft,
+    borderColor: "#bfe5ce",
+  },
+  inactivePill: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: "#f3c2bc",
+  },
+  bannerPillText: {
+    fontSize: typography.tiny,
+    fontWeight: "700",
   },
   bannerActions: {
-    gap: 8,
+    flexDirection: "row",
+    gap: spacing.sm,
+    flexWrap: "wrap",
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
   },
   emptyText: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: typography.small,
   },
   modalBackdrop: {
     flex: 1,
@@ -406,30 +541,30 @@ const styles = StyleSheet.create({
   modalScroll: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 16,
+    padding: layout.screenPadding,
   },
   modalCard: {
-    backgroundColor: colors.panel,
+    backgroundColor: colors.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 18,
-    gap: 12,
-    ...shadow,
+    padding: spacing.xl,
+    gap: spacing.md,
+    ...shadowStrong,
   },
   modalTitle: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: typography.section,
     fontWeight: "800",
   },
   previewText: {
     color: colors.muted,
-    fontSize: 13,
+    fontSize: typography.small,
   },
   menuItemList: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.sm,
   },
   switchRow: {
     flexDirection: "row",
@@ -437,11 +572,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   fieldLabel: {
-    color: colors.text,
-    fontSize: 14,
+    color: colors.textSoft,
+    fontSize: typography.small,
     fontWeight: "600",
   },
   modalActions: {
-    gap: 10,
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  modalAction: {
+    flex: 1,
   },
 });

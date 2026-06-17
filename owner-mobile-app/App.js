@@ -11,7 +11,7 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <SocketProvider>
-            <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+            <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
             <OwnerNavigator />
           </SocketProvider>
         </AuthProvider>

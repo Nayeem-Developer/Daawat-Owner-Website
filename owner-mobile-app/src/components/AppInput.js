@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, radius } from "../theme/theme";
+import { colors, radius, spacing, typography } from "../theme/theme";
 
 export default function AppInput({
   label,
@@ -14,6 +14,7 @@ export default function AppInput({
   onRightIconPress,
   rightText = "",
   onRightTextPress,
+  helperText = "",
   style,
 }) {
   const hasAction = Boolean(rightIcon || rightText);
@@ -31,6 +32,7 @@ export default function AppInput({
           multiline={multiline}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          autoCorrect={false}
           style={[
             styles.input,
             multiline && styles.multiline,
@@ -53,17 +55,18 @@ export default function AppInput({
           </Pressable>
         ) : null}
       </View>
+      {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: 8,
+    gap: spacing.xs,
   },
   label: {
-    color: colors.text,
-    fontSize: 14,
+    color: colors.textSoft,
+    fontSize: typography.small,
     fontWeight: "600",
   },
   inputContainer: {
@@ -81,26 +84,30 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 50,
     color: colors.text,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: typography.body,
   },
   inputWithAction: {
-    paddingRight: 8,
+    paddingRight: spacing.sm,
   },
   multiline: {
-    minHeight: 96,
+    minHeight: 110,
     textAlignVertical: "top",
   },
   actionButton: {
     minHeight: 50,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.md,
     alignItems: "center",
     justifyContent: "center",
   },
   actionText: {
-    color: colors.gold,
-    fontSize: 13,
+    color: colors.primary,
+    fontSize: typography.small,
     fontWeight: "700",
+  },
+  helperText: {
+    color: colors.muted,
+    fontSize: typography.tiny,
   },
 });

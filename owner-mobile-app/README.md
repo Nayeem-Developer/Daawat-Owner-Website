@@ -1,13 +1,13 @@
 # Daawat Owner Mobile App
 
-React Native owner app for Daawat, built with Expo and wired to the live backend at `https://daawat-backend.onrender.com`.
+React Native CLI owner app for Daawat, wired to the live backend at `https://daawat-backend.onrender.com`.
 
 ## Commands
 
 ```bash
 npm install
-npm run start
-npm run android
+npx react-native start --reset-cache
+npx react-native run-android
 ```
 
 ## Structure
@@ -25,3 +25,4 @@ npm run android
 - The app uses the same owner endpoints as the existing website.
 - Test credentials are not stored in source code.
 - Socket.io reconnects after login and refreshes order-related screens when events arrive.
+- This app does not use Expo or Expo Go.

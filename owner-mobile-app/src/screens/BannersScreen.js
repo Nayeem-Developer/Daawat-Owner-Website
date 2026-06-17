@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import * as ImagePicker from "expo-image-picker";
+import { launchImageLibrary } from "react-native-image-picker";
 import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import {
@@ -137,13 +137,13 @@ export default function BannersScreen() {
   };
 
   const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
+    const result = await launchImageLibrary({
+      mediaType: "photo",
+      selectionLimit: 1,
       quality: 0.85,
     });
 
-    if (!result.canceled && result.assets?.[0]) {
+    if (!result.didCancel && result.assets?.[0]) {
       setForm((current) => ({ ...current, imageAsset: result.assets[0] }));
     }
   };

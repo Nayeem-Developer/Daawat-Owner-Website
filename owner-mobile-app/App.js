@@ -1,6 +1,5 @@
-import { View } from "react-native";
+import { StatusBar, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
 import OwnerNavigator from "./src/navigation/OwnerNavigator";
 import { AuthProvider } from "./src/context/AuthContext";
 import { SocketProvider } from "./src/context/SocketContext";
@@ -12,7 +11,7 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <SocketProvider>
-            <StatusBar style="light" />
+            <StatusBar barStyle="light-content" backgroundColor={colors.background} />
             <OwnerNavigator />
           </SocketProvider>
         </AuthProvider>

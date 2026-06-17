@@ -1,13 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, shadow } from "../theme/theme";
-
-const toneGradients = {
-  default: ["rgba(25,19,19,0.95)", "rgba(35,24,24,0.95)"],
-  accent: ["rgba(160,39,46,0.65)", "rgba(213,164,74,0.34)"],
-  success: ["rgba(31,143,95,0.7)", "rgba(19,45,32,0.96)"],
-  gold: ["rgba(117,79,18,0.82)", "rgba(37,24,14,0.98)"],
-};
 
 export default function DashboardCard({
   title,
@@ -19,22 +11,22 @@ export default function DashboardCard({
   if (onPress) {
     return (
       <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
-        <LinearGradient colors={toneGradients[tone] || toneGradients.default} style={styles.gradient}>
+        <View style={[styles.gradient, styles[tone] || styles.default]}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.value}>{value}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </LinearGradient>
+        </View>
       </Pressable>
     );
   }
 
   return (
     <View style={styles.card}>
-      <LinearGradient colors={toneGradients[tone] || toneGradients.default} style={styles.gradient}>
+      <View style={[styles.gradient, styles[tone] || styles.default]}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.value}>{value}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -54,6 +46,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: "space-between",
+  },
+  default: {
+    backgroundColor: "rgba(25,19,19,0.95)",
+  },
+  accent: {
+    backgroundColor: "rgba(93,48,27,0.95)",
+  },
+  success: {
+    backgroundColor: "rgba(22,67,48,0.95)",
+  },
+  gold: {
+    backgroundColor: "rgba(87,60,18,0.96)",
   },
   title: {
     color: "#d9cbb8",

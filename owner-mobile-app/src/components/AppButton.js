@@ -1,12 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius } from "../theme/theme";
-
-const gradientByVariant = {
-  primary: [colors.primary, colors.gold],
-  success: ["#1f8f5f", "#37b77b"],
-  danger: ["#b73b3b", "#c94242"],
-};
 
 export default function AppButton({
   label,
@@ -43,13 +36,7 @@ export default function AppButton({
         style,
       ]}
     >
-      {isGhost || isChip ? (
-        content
-      ) : (
-        <LinearGradient colors={gradientByVariant[variant] || gradientByVariant.primary} style={styles.gradient}>
-          {content}
-        </LinearGradient>
-      )}
+      {isGhost || isChip ? content : <View style={[styles.gradient, styles[variant] || styles.primary]}>{content}</View>}
     </Pressable>
   );
 }
@@ -68,6 +55,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 18,
     borderRadius: radius.md,
+  },
+  primary: {
+    backgroundColor: colors.primary,
+    borderColor: colors.gold,
+    borderWidth: 1,
+  },
+  success: {
+    backgroundColor: "#1f8f5f",
+  },
+  danger: {
+    backgroundColor: "#b73b3b",
   },
   label: {
     color: colors.white,

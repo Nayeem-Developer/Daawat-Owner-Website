@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import { useAuth } from "../context/AuthContext";
@@ -28,7 +27,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient colors={["#0f0b0b", "#171212"]} style={styles.screen}>
+    <View style={styles.screen}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -66,7 +65,7 @@ export default function LoginScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 

@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
-import Constants from "expo-constants";
 import AppButton from "../components/AppButton";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
@@ -11,10 +10,7 @@ export default function SettingsScreen() {
   const { owner, signOut } = useAuth();
   const { isConnected } = useSocket();
 
-  const appVersion = useMemo(
-    () => Constants.expoConfig?.version || Constants.manifest2?.extra?.expoClient?.version || "1.0.0",
-    []
-  );
+  const appVersion = useMemo(() => require("../../package.json").version || "1.0.0", []);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>

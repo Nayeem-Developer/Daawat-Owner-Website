@@ -1,13 +1,15 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { configureApiClient } from "../api/apiClient";
-import { fetchOwnerProfile, loginOwner } from "../api/ownerApi";
+import { loginOwner } from "../api/ownerApi";
 
 const AuthContext = createContext(null);
 
 const STORAGE_KEYS = {
-  token: "daawat_owner_token",
-  owner: "daawat_owner_profile",
+  token: "ownerToken",
+  owner: "ownerUser",
+  legacyToken: "daawat_owner_token",
+  legacyOwner: "daawat_owner_profile",
 };
 
 const persistSession = async (token, owner) => {
@@ -18,42 +20,75 @@ const persistSession = async (token, owner) => {
 const clearSession = async () => {
   await AsyncStorage.removeItem(STORAGE_KEYS.token);
   await AsyncStorage.removeItem(STORAGE_KEYS.owner);
+  await AsyncStorage.removeItem(STORAGE_KEYS.legacyToken);
+  await AsyncStorage.removeItem(STORAGE_KEYS.legacyOwner);
 };
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState("");
   const [owner, setOwner] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const signOut = async () => {
+  const logout = useCallback(async () => {
     await clearSession();
     setToken("");
     setOwner(null);
-  };
+    setIsAuthenticated(false);
+  }, []);
 
   useEffect(() => {
     configureApiClient({
-      getToken: async () => (await AsyncStorage.getItem(STORAGE_KEYS.token)) || "",
+      getToken: async () => {
+        const storedToken = await AsyncStorage.getItem(STORAGE_KEYS.token);
+        if (storedToken) {
+          return storedToken;
+        }
+        return (await AsyncStorage.getItem(STORAGE_KEYS.legacyToken)) || "";
+      },
       onUnauthorized: async () => {
-        await signOut();
+        await logout();
       },
     });
-  }, []);
+  }, [logout]);
 
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const [storedToken, storedOwner] = await Promise.all([
+        const [storedToken, storedOwner, legacyToken, legacyOwner] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.token),
           AsyncStorage.getItem(STORAGE_KEYS.owner),
+          AsyncStorage.getItem(STORAGE_KEYS.legacyToken),
+          AsyncStorage.getItem(STORAGE_KEYS.legacyOwner),
         ]);
 
-        if (storedToken) {
-          setToken(storedToken);
+        const nextToken = storedToken || legacyToken || "";
+        const nextOwnerRaw = storedOwner || legacyOwner || "";
+
+        if (nextToken) {
+          setToken(nextToken);
+          setIsAuthenticated(true);
+
+          if (!storedToken && legacyToken) {
+            await AsyncStorage.setItem(STORAGE_KEYS.token, legacyToken);
+          }
+        } else {
+          setIsAuthenticated(false);
         }
 
-        if (storedOwner) {
-          setOwner(JSON.parse(storedOwner));
+        if (nextOwnerRaw) {
+          try {
+            const parsedOwner = JSON.parse(nextOwnerRaw);
+            setOwner(parsedOwner);
+
+            if (!storedOwner && legacyOwner) {
+              await AsyncStorage.setItem(STORAGE_KEYS.owner, nextOwnerRaw);
+            }
+          } catch {
+            setOwner(null);
+          }
+        } else {
+          setOwner(null);
         }
       } finally {
         setIsLoading(false);
@@ -63,50 +98,44 @@ export const AuthProvider = ({ children }) => {
     void bootstrap();
   }, []);
 
-  const signIn = async ({ email, password }) => {
-    const result = await loginOwner({ email, password });
+  const login = useCallback(async (email, password) => {
+    const normalizedEmail = String(email || "").trim();
+    const result = await loginOwner({ email: normalizedEmail, password });
     const nextToken = result?.token || "";
-
-    if (!nextToken) {
-      throw new Error("Login failed. Token missing.");
-    }
-
     const nextOwner = {
-      email,
-      name: result.owner?.name || result.owner?.ownerName || "Daawat Owner",
-      ...result.owner,
+      email: normalizedEmail,
+      name: result?.owner?.name || result?.owner?.ownerName || "Daawat Owner",
+      ...result?.owner,
     };
 
+    if (!nextToken) {
+      throw new Error("Login failed. Token missing from server response.");
+    }
+
+    console.log("SAVING_OWNER_AUTH");
     await persistSession(nextToken, nextOwner);
+    console.log("OWNER_AUTH_SAVED");
 
     setToken(nextToken);
     setOwner(nextOwner);
+    setIsAuthenticated(true);
 
-    try {
-      const profile = await fetchOwnerProfile();
-      if (profile) {
-        await AsyncStorage.setItem(STORAGE_KEYS.owner, JSON.stringify(profile));
-        setOwner((current) => ({ ...current, ...profile }));
-      }
-    } catch {
-      // Fallback to login response if profile endpoint is unavailable.
-    }
+    console.log("AUTH_STATE_AFTER_LOGIN:", { isAuthenticated: true });
 
     return result;
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
-      token,
       owner,
+      token,
+      isAuthenticated,
       isLoading,
-      isAuthenticated: Boolean(token),
-      signIn,
-      login: signIn,
-      signOut,
+      login,
+      logout,
       setOwner,
     }),
-    [isLoading, owner, token]
+    [isAuthenticated, isLoading, login, logout, owner, token]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -44,8 +44,9 @@ apiClient.interceptors.response.use(
 
     const requestUrl = String(error.config?.url || "");
     const isLoginRequest = requestUrl.includes("/login");
+    const skipAuthLogout = Boolean(error.config?.skipAuthLogout);
 
-    if (normalizedError.status === 401 && !isLoginRequest) {
+    if (normalizedError.status === 401 && !isLoginRequest && !skipAuthLogout) {
       await unauthorizedHandler();
     }
 

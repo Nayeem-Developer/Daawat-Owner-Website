@@ -10,9 +10,10 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import DashboardCard from "../components/DashboardCard";
 import { fetchAppStatus, fetchOrderStats, fetchOrders } from "../api/ownerApi";
+import { useAuth } from "../context/AuthContext";
+import { useSocket } from "../context/SocketContext";
 import { colors, radius, shadow, spacing } from "../theme/theme";
 import { computeOrderStats, formatCurrency, formatDateTime } from "../utils/formatters";
-import { useSocket } from "../context/SocketContext";
 
 const quickLinks = [
   "Orders",
@@ -25,33 +26,66 @@ const quickLinks = [
 
 export default function DashboardScreen() {
   const navigation = useNavigation();
+  const { owner } = useAuth();
   const { lastOrderEvent, lastAppStatusEvent, isConnected } = useSocket();
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({});
   const [recentOrders, setRecentOrders] = useState([]);
   const [appStatus, setAppStatus] = useState({ isActive: true, message: "" });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
   const loadDashboard = useCallback(async () => {
     try {
-      const [statsResponse, ordersResponse, appStatusResponse] = await Promise.all([
-        fetchOrderStats().catch(() => ({})),
-        fetchOrders({ limit: 10 }).catch(() => ({ orders: [] })),
+      setError("");
+
+      const [statsResult, ordersResult, appStatusResult] = await Promise.allSettled([
+        fetchOrderStats(),
+        fetchOrders({ limit: 10 }),
         fetchAppStatus(),
       ]);
 
-      const derivedStats = computeOrderStats(ordersResponse.orders || []);
+      const statsResponse =
+        statsResult.status === "fulfilled" && statsResult.value ? statsResult.value : {};
+      const ordersResponse =
+        ordersResult.status === "fulfilled" && ordersResult.value
+          ? ordersResult.value
+          : { orders: [] };
+      const appStatusResponse =
+        appStatusResult.status === "fulfilled" && appStatusResult.value
+          ? appStatusResult.value
+          : { isActive: true, message: "" };
+
+      const orders = ordersResponse?.orders || [];
+      const derivedStats = computeOrderStats(orders);
 
       setStats({
-        totalOrders: statsResponse.totalOrders ?? derivedStats.totalOrders,
-        pendingOrders: statsResponse.pendingOrders ?? derivedStats.pendingOrders,
-        acceptedOrders: statsResponse.acceptedOrders ?? derivedStats.acceptedOrders,
-        deliveredOrders: statsResponse.deliveredOrders ?? derivedStats.deliveredOrders,
-        cancelledOrders: statsResponse.cancelledOrders ?? derivedStats.cancelledOrders,
-        totalRevenue: statsResponse.totalRevenue ?? derivedStats.totalRevenue,
+        totalOrders: statsResponse?.totalOrders ?? derivedStats.totalOrders,
+        pendingOrders: statsResponse?.pendingOrders ?? derivedStats.pendingOrders,
+        acceptedOrders: statsResponse?.acceptedOrders ?? derivedStats.acceptedOrders,
+        deliveredOrders: statsResponse?.deliveredOrders ?? derivedStats.deliveredOrders,
+        cancelledOrders: statsResponse?.cancelledOrders ?? derivedStats.cancelledOrders,
+        totalRevenue: statsResponse?.totalRevenue ?? derivedStats.totalRevenue,
       });
-      setRecentOrders(ordersResponse.orders || []);
-      setAppStatus(appStatusResponse);
+      setRecentOrders(orders);
+      setAppStatus(appStatusResponse || { isActive: true, message: "" });
+
+      const firstError =
+        [statsResult, ordersResult, appStatusResult]
+          .filter((result) => result.status === "rejected")
+          .map((result) => result.reason)
+          .find(Boolean) || null;
+
+      if (firstError && firstError?.status !== 401) {
+        setError(firstError?.message || "Unable to load dashboard data right now.");
+      }
+    } catch (loadError) {
+      if (loadError?.status !== 401) {
+        setError(loadError?.message || "Unable to load dashboard data right now.");
+        setStats({});
+        setRecentOrders([]);
+        setAppStatus({ isActive: true, message: "" });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -92,31 +126,53 @@ export default function DashboardScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={colors.gold}
+        />
+      }
     >
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>Owner Overview</Text>
         <Text style={styles.heroSubtitle}>
-          Live backend connected, restaurant control at your fingertips.
+          {owner?.name || "Owner"}, live backend connected and restaurant control at your
+          fingertips.
         </Text>
         <View style={styles.statusBanner}>
           <Text style={styles.statusLabel}>App Status</Text>
-          <Text style={styles.statusValue}>{appStatus.isActive ? "Active" : "Inactive"}</Text>
-          <Text style={styles.statusMessage}>{appStatus.message || "No status message"}</Text>
-          <Text style={styles.socketState}>{isConnected ? "Socket connected" : "Socket disconnected"}</Text>
+          <Text style={styles.statusValue}>{appStatus?.isActive ? "Active" : "Inactive"}</Text>
+          <Text style={styles.statusMessage}>{appStatus?.message || "No status message"}</Text>
+          <Text style={styles.socketState}>
+            {isConnected ? "Socket connected" : "Socket disconnected"}
+          </Text>
         </View>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
 
       <View style={styles.cardsRow}>
         <DashboardCard title="Total Orders" value={String(stats?.totalOrders ?? 0)} />
-        <DashboardCard title="Pending Orders" value={String(stats?.pendingOrders ?? 0)} tone="gold" />
+        <DashboardCard
+          title="Pending Orders"
+          value={String(stats?.pendingOrders ?? 0)}
+          tone="gold"
+        />
       </View>
       <View style={styles.cardsRow}>
-        <DashboardCard title="Accepted Orders" value={String(stats?.acceptedOrders ?? 0)} tone="success" />
+        <DashboardCard
+          title="Accepted Orders"
+          value={String(stats?.acceptedOrders ?? 0)}
+          tone="success"
+        />
         <DashboardCard title="Delivered Orders" value={String(stats?.deliveredOrders ?? 0)} />
       </View>
       <View style={styles.cardsRow}>
-        <DashboardCard title="Cancelled Orders" value={String(stats?.cancelledOrders ?? 0)} tone="accent" />
+        <DashboardCard
+          title="Cancelled Orders"
+          value={String(stats?.cancelledOrders ?? 0)}
+          tone="accent"
+        />
         <DashboardCard title="Total Revenue" value={formatCurrency(stats?.totalRevenue ?? 0)} />
       </View>
 
@@ -138,21 +194,23 @@ export default function DashboardScreen() {
 
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Recent Orders</Text>
-        {recentOrders.length === 0 ? (
+        {(recentOrders || []).length === 0 ? (
           <Text style={styles.emptyText}>No recent orders found.</Text>
         ) : (
-          recentOrders.slice(0, 5).map((order) => (
-            <View key={order._id || order.orderId} style={styles.recentOrder}>
+          (recentOrders || []).slice(0, 5).map((order) => (
+            <View key={order?._id || order?.orderId} style={styles.recentOrder}>
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.recentOrderId}>
-                  Order #{order.orderId || order._id}
+                <Text style={styles.recentOrderId}>Order #{order?.orderId || order?._id}</Text>
+                <Text style={styles.recentOrderMeta}>
+                  {order?.customerName || "Customer"} | {formatCurrency(order?.total ?? 0)}
                 </Text>
                 <Text style={styles.recentOrderMeta}>
-                  {order.customerName} • {formatCurrency(order.total)}
+                  {formatDateTime(order?.createdAt)}
                 </Text>
-                <Text style={styles.recentOrderMeta}>{formatDateTime(order.createdAt)}</Text>
               </View>
-              <Text style={styles.recentOrderStatus}>{order.status}</Text>
+              <Text style={styles.recentOrderStatus}>
+                {order?.status || order?.orderStatus || "Unknown"}
+              </Text>
             </View>
           ))
         )}
@@ -215,6 +273,11 @@ const styles = StyleSheet.create({
     color: "#ffe9c2",
     fontSize: 12,
     fontWeight: "700",
+  },
+  errorText: {
+    color: "#ffb3b3",
+    fontSize: 13,
+    fontWeight: "600",
   },
   cardsRow: {
     flexDirection: "row",

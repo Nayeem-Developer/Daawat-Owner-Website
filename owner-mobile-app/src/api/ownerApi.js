@@ -5,13 +5,6 @@ import {
   normalizeOrder,
 } from "../utils/formatters";
 
-const getTokenFromResponse = (responseBody) =>
-  responseBody?.token ||
-  responseBody?.data?.token ||
-  responseBody?.jwt ||
-  responseBody?.accessToken ||
-  "";
-
 const getOwnerFromResponse = (responseBody, email) =>
   responseBody?.owner ||
   responseBody?.user ||
@@ -28,27 +21,40 @@ const getLoginErrorMessage = (error) =>
   error?.message ||
   "Unable to login. Please try again.";
 
-export const loginOwner = async (credentials) => {
-  console.log("Owner login attempt:", credentials?.email);
+export const loginOwner = async ({ email, password }) => {
+  console.log("OWNER_LOGIN_REQUEST:", email);
 
   try {
-    const response = await apiClient.post(API_ROUTES.ownerLogin, credentials);
-    console.log("Owner login response:", response?.data);
+    const response = await apiClient.post(API_ROUTES.ownerLogin, {
+      email,
+      password,
+    });
+    console.log("OWNER_LOGIN_RESPONSE:", response?.data);
 
-    const responseBody = response?.data || {};
-    const token = getTokenFromResponse(responseBody);
+    const data = response?.data || {};
+    const token =
+      data?.token ||
+      data?.data?.token ||
+      data?.accessToken ||
+      data?.data?.accessToken ||
+      data?.jwt ||
+      "";
+    const owner = getOwnerFromResponse(data, email);
+
+    console.log("EXTRACTED_TOKEN:", Boolean(token));
+    console.log("EXTRACTED_OWNER:", Boolean(owner));
 
     if (!token) {
-      throw new Error("Login failed. Token missing.");
+      throw new Error("Login failed. Token missing from server response.");
     }
 
     return {
       token,
-      owner: getOwnerFromResponse(responseBody, credentials?.email),
-      raw: responseBody,
+      owner,
+      raw: data,
     };
   } catch (error) {
-    console.log("Owner login error:", error?.response?.data || error.message);
+    console.log("OWNER_LOGIN_ERROR:", error?.response?.data || error.message);
     const normalizedError = new Error(getLoginErrorMessage(error));
     normalizedError.response = error?.response;
     throw normalizedError;
@@ -56,14 +62,14 @@ export const loginOwner = async (credentials) => {
 };
 
 export const fetchOwnerProfile = async () => {
-  const candidateRoutes = ["/api/auth/me", "/api/owner/me"];
+  const candidateRoutes = ["/api/owner/me"];
 
   for (const route of candidateRoutes) {
     try {
-      const response = await apiClient.get(route);
+      const response = await apiClient.get(route, { skipAuthLogout: true });
       return response?.data?.data || response?.data?.owner || response?.data?.user || response?.data;
     } catch (error) {
-      if (error?.status && error.status !== 404) {
+      if (error?.status && error.status !== 401 && error.status !== 404) {
         throw error;
       }
     }

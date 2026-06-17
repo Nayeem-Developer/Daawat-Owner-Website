@@ -7,7 +7,7 @@ import { API_BASE_URL } from "../config/apiConfig";
 import { colors, radius, shadow, spacing } from "../theme/theme";
 
 export default function SettingsScreen() {
-  const { owner, signOut } = useAuth();
+  const { owner, logout } = useAuth();
   const { isConnected } = useSocket();
 
   const appVersion = useMemo(() => require("../../package.json").version || "1.0.0", []);
@@ -31,7 +31,7 @@ export default function SettingsScreen() {
           onPress={() =>
             Alert.alert("Logout", "Do you want to logout from the owner app?", [
               { text: "Cancel", style: "cancel" },
-              { text: "Logout", style: "destructive", onPress: () => void signOut() },
+              { text: "Logout", style: "destructive", onPress: () => void logout() },
             ])
           }
         />

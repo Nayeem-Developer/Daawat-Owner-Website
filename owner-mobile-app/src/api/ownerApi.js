@@ -12,26 +12,47 @@ const getTokenFromResponse = (responseBody) =>
   responseBody?.accessToken ||
   "";
 
+const getOwnerFromResponse = (responseBody, email) =>
+  responseBody?.owner ||
+  responseBody?.user ||
+  responseBody?.data?.owner ||
+  responseBody?.data?.user ||
+  {
+    email,
+    name: "Daawat Owner",
+  };
+
+const getLoginErrorMessage = (error) =>
+  error?.response?.data?.message ||
+  error?.response?.data?.error ||
+  error?.message ||
+  "Unable to login. Please try again.";
+
 export const loginOwner = async (credentials) => {
-  const response = await apiClient.post(API_ROUTES.ownerLogin, credentials);
-  const responseBody = response?.data || {};
-  const token = getTokenFromResponse(responseBody);
+  console.log("Owner login attempt:", credentials?.email);
 
-  if (!token) {
-    throw new Error("Token not returned from login API");
-  }
+  try {
+    const response = await apiClient.post(API_ROUTES.ownerLogin, credentials);
+    console.log("Owner login response:", response?.data);
 
-  const owner =
-    responseBody?.owner ||
-    responseBody?.data?.owner ||
-    responseBody?.user ||
-    responseBody?.data?.user ||
-    {
-      email: credentials.email,
-      name: "Daawat Owner",
+    const responseBody = response?.data || {};
+    const token = getTokenFromResponse(responseBody);
+
+    if (!token) {
+      throw new Error("Login failed. Token missing.");
+    }
+
+    return {
+      token,
+      owner: getOwnerFromResponse(responseBody, credentials?.email),
+      raw: responseBody,
     };
-
-  return { token, owner, raw: responseBody };
+  } catch (error) {
+    console.log("Owner login error:", error?.response?.data || error.message);
+    const normalizedError = new Error(getLoginErrorMessage(error));
+    normalizedError.response = error?.response;
+    throw normalizedError;
+  }
 };
 
 export const fetchOwnerProfile = async () => {

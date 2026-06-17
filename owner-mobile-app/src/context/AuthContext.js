@@ -10,10 +10,26 @@ const STORAGE_KEYS = {
   owner: "daawat_owner_profile",
 };
 
+const persistSession = async (token, owner) => {
+  await AsyncStorage.setItem(STORAGE_KEYS.token, token);
+  await AsyncStorage.setItem(STORAGE_KEYS.owner, JSON.stringify(owner));
+};
+
+const clearSession = async () => {
+  await AsyncStorage.removeItem(STORAGE_KEYS.token);
+  await AsyncStorage.removeItem(STORAGE_KEYS.owner);
+};
+
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState("");
   const [owner, setOwner] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const signOut = async () => {
+    await clearSession();
+    setToken("");
+    setOwner(null);
+  };
 
   useEffect(() => {
     configureApiClient({
@@ -49,18 +65,21 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async ({ email, password }) => {
     const result = await loginOwner({ email, password });
+    const nextToken = result?.token || "";
+
+    if (!nextToken) {
+      throw new Error("Login failed. Token missing.");
+    }
+
     const nextOwner = {
       email,
       name: result.owner?.name || result.owner?.ownerName || "Daawat Owner",
       ...result.owner,
     };
 
-    await AsyncStorage.multiSet([
-      [STORAGE_KEYS.token, result.token],
-      [STORAGE_KEYS.owner, JSON.stringify(nextOwner)],
-    ]);
+    await persistSession(nextToken, nextOwner);
 
-    setToken(result.token);
+    setToken(nextToken);
     setOwner(nextOwner);
 
     try {
@@ -76,12 +95,6 @@ export const AuthProvider = ({ children }) => {
     return result;
   };
 
-  const signOut = async () => {
-    await AsyncStorage.multiRemove([STORAGE_KEYS.token, STORAGE_KEYS.owner]);
-    setToken("");
-    setOwner(null);
-  };
-
   const value = useMemo(
     () => ({
       token,
@@ -89,6 +102,7 @@ export const AuthProvider = ({ children }) => {
       isLoading,
       isAuthenticated: Boolean(token),
       signIn,
+      login: signIn,
       signOut,
       setOwner,
     }),

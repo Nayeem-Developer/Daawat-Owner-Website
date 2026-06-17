@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import { useAuth } from "../context/AuthContext";
@@ -8,19 +16,35 @@ import { colors, radius, shadow } from "../theme/theme";
 const logo = require("../../assets/branding/daawat-logo.png");
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { signIn, login } = useAuth();
+  const authLogin = signIn || login;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
+    console.log("Owner login pressed");
+
+    if (typeof authLogin !== "function") {
+      console.log("Owner login error:", "Auth login function is not configured");
+      setError("Unable to login. Please try again.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
-      await signIn({ email: email.trim(), password });
+      await authLogin({ email: email.trim(), password });
     } catch (loginError) {
-      setError(loginError?.message || "Login failed");
+      const message =
+        loginError?.response?.data?.message ||
+        loginError?.response?.data?.error ||
+        loginError?.message ||
+        "Unable to login. Please try again.";
+      console.log("Owner login error:", loginError?.response?.data || loginError?.message);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -30,40 +54,48 @@ export default function LoginScreen() {
     <View style={styles.screen}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.card}>
-          <Image source={logo} style={styles.logo} />
-          <Text style={styles.title}>Owner Login</Text>
-          <Text style={styles.subtitle}>
-            Sign in to manage Daawat orders, menu, banners, and app status.
-          </Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.card}>
+            <Image source={logo} style={styles.logo} />
+            <Text style={styles.title}>Owner Login</Text>
+            <Text style={styles.subtitle}>
+              Sign in to manage Daawat orders, menu, banners, and app status.
+            </Text>
 
-          <View style={styles.form}>
-            <AppInput
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="owner@daawat.com"
-              keyboardType="email-address"
-            />
-            <AppInput
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your password"
-              secureTextEntry
-            />
+            <View style={styles.form}>
+              <AppInput
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="owner@daawat.com"
+                keyboardType="email-address"
+              />
+              <AppInput
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                secureTextEntry={!showPassword}
+                rightText={showPassword ? "Hide" : "Show"}
+                onRightTextPress={() => setShowPassword((current) => !current)}
+              />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+              {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <AppButton
-              label={loading ? "Signing In..." : "Login"}
-              onPress={handleLogin}
-              loading={loading}
-            />
+              <AppButton
+                label={loading ? "Signing In..." : "Login"}
+                onPress={handleLogin}
+                loading={loading}
+              />
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -75,8 +107,12 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     padding: 20,
+    paddingBottom: 40,
   },
   card: {
     backgroundColor: "rgba(20,14,14,0.96)",

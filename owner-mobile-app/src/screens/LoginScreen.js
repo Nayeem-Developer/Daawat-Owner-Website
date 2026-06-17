@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "../components/AppIcon";
 import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import { useAuth } from "../context/AuthContext";
@@ -95,20 +95,20 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               placeholder="Enter your password"
               secureTextEntry={!showPassword}
-              rightText={showPassword ? "Hide" : "Show"}
-              onRightTextPress={() => setShowPassword((current) => !current)}
+              rightIcon={showPassword ? "eye-off-outline" : "eye-outline"}
+              onRightIconPress={() => setShowPassword((current) => !current)}
             />
 
             {error ? (
               <View style={styles.errorCard}>
-                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+                <AppIcon name="alert-circle-outline" size={18} color={colors.danger} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
 
             <AppButton
               label={loading ? "Signing In..." : "Login"}
-              leftIcon="log-in-outline"
+              leftIcon="login"
               onPress={handleLogin}
               loading={loading}
               size="lg"

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import AppIcon from "./AppIcon";
 import { colors, radius, spacing, typography } from "../theme/theme";
 
 export default function AppInput({
@@ -43,7 +44,7 @@ export default function AppInput({
         {rightIcon ? (
           <Pressable onPress={onRightIconPress} style={styles.actionButton} hitSlop={8}>
             {typeof rightIcon === "string" ? (
-              <Text style={styles.actionText}>{rightIcon}</Text>
+              <AppIcon name={rightIcon} size={20} color={colors.primary} />
             ) : (
               rightIcon
             )}

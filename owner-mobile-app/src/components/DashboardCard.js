@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "./AppIcon";
 import { colors, radius, shadow, spacing, typography } from "../theme/theme";
 
 const TONES = {
@@ -46,7 +46,7 @@ export default function DashboardCard({
   subtitle,
   onPress,
   tone = "neutral",
-  icon = "grid-outline",
+  icon = "view-dashboard-outline",
   kind = "metric",
   style,
 }) {
@@ -63,10 +63,10 @@ export default function DashboardCard({
     >
       <View style={isAction ? styles.actionRow : styles.metricTopRow}>
         <View style={[styles.iconWrap, { backgroundColor: palette.iconBg }]}>
-          <Ionicons name={icon} size={20} color={palette.icon} />
+          <AppIcon name={icon} size={20} color={palette.icon} />
         </View>
         {isAction ? (
-          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          <AppIcon name="chevron-right" size={18} color={colors.muted} />
         ) : null}
       </View>
 

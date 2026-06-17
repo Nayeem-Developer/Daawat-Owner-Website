@@ -9,8 +9,8 @@ import {
   Text,
   View,
 } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect } from "@react-navigation/native";
+import AppIcon from "../components/AppIcon";
 import { fetchAppStatus, updateAppStatus } from "../api/ownerApi";
 import { useSocket } from "../context/SocketContext";
 import {
@@ -96,7 +96,7 @@ export default function AppStatusScreen() {
       <View style={styles.heroCard}>
         <View style={styles.heroTopRow}>
           <View style={styles.iconWrap}>
-            <Ionicons name="radio-outline" size={22} color={colors.primary} />
+            <AppIcon name="store-check-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text style={styles.title}>App Status</Text>

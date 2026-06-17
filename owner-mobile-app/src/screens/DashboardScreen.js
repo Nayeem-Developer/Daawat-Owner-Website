@@ -8,8 +8,8 @@ import {
   Text,
   View,
 } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import AppIcon from "../components/AppIcon";
 import DashboardCard from "../components/DashboardCard";
 import { fetchAppStatus, fetchOrderStats, fetchOrders } from "../api/ownerApi";
 import { useAuth } from "../context/AuthContext";
@@ -30,42 +30,42 @@ const quickActions = [
     title: "Orders",
     subtitle: "Manage orders",
     screen: "Orders",
-    icon: "receipt-outline",
+    icon: "receipt-text-outline",
     tone: "primary",
   },
   {
     title: "Menu",
     subtitle: "Edit food items",
     screen: "Menu Items",
-    icon: "restaurant-outline",
+    icon: "food-outline",
     tone: "gold",
   },
   {
     title: "Categories",
     subtitle: "Food sections",
     screen: "Categories",
-    icon: "layers-outline",
+    icon: "shape-outline",
     tone: "warning",
   },
   {
     title: "Banners",
     subtitle: "Home banners",
     screen: "Banners",
-    icon: "images-outline",
+    icon: "image-multiple-outline",
     tone: "info",
   },
   {
     title: "App Status",
     subtitle: "Open or close orders",
     screen: "App Status",
-    icon: "radio-outline",
+    icon: "store-check-outline",
     tone: "success",
   },
   {
     title: "Settings",
     subtitle: "Account settings",
     screen: "Settings",
-    icon: "settings-outline",
+    icon: "cog-outline",
     tone: "neutral",
   },
 ];
@@ -156,42 +156,42 @@ export default function DashboardScreen() {
 
   const summaryCards = useMemo(
     () => [
-      {
-        title: "Total Orders",
-        value: String(stats?.totalOrders ?? 0),
-        icon: "receipt-outline",
-        tone: "primary",
-      },
-      {
-        title: "Pending",
-        value: String(stats?.pendingOrders ?? 0),
-        icon: "time-outline",
-        tone: "warning",
-      },
-      {
-        title: "Accepted",
-        value: String(stats?.acceptedOrders ?? 0),
-        icon: "checkmark-circle-outline",
-        tone: "success",
-      },
-      {
-        title: "Delivered",
-        value: String(stats?.deliveredOrders ?? 0),
-        icon: "cube-outline",
-        tone: "info",
-      },
+        {
+          title: "Total Orders",
+          value: String(stats?.totalOrders ?? 0),
+          icon: "receipt-text-outline",
+          tone: "primary",
+        },
+        {
+          title: "Pending",
+          value: String(stats?.pendingOrders ?? 0),
+          icon: "clock-outline",
+          tone: "warning",
+        },
+        {
+          title: "Accepted",
+          value: String(stats?.acceptedOrders ?? 0),
+          icon: "check-circle-outline",
+          tone: "success",
+        },
+        {
+          title: "Delivered",
+          value: String(stats?.deliveredOrders ?? 0),
+          icon: "truck-delivery-outline",
+          tone: "info",
+        },
       {
         title: "Cancelled",
         value: String(stats?.cancelledOrders ?? 0),
         icon: "close-circle-outline",
         tone: "danger",
       },
-      {
-        title: "Revenue",
-        value: formatCurrency(stats?.totalRevenue ?? 0),
-        icon: "wallet-outline",
-        tone: "gold",
-      },
+        {
+          title: "Revenue",
+          value: formatCurrency(stats?.totalRevenue ?? 0),
+          icon: "cash-multiple",
+          tone: "gold",
+        },
     ],
     [stats]
   );
@@ -225,7 +225,7 @@ export default function DashboardScreen() {
           <Text style={styles.headerSubtitle}>Manage restaurant operations</Text>
         </View>
         <Pressable style={styles.settingsButton} onPress={() => navigation.navigate("Settings")}>
-          <Ionicons name="settings-outline" size={20} color={colors.primary} />
+          <AppIcon name="cog-outline" size={20} color={colors.primary} />
         </Pressable>
       </View>
 
@@ -262,7 +262,7 @@ export default function DashboardScreen() {
 
       {error ? (
         <View style={styles.errorCard}>
-          <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+          <AppIcon name="alert-circle-outline" size={18} color={colors.danger} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}

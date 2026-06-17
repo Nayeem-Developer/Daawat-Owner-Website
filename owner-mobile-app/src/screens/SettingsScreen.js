@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "../components/AppIcon";
 import AppButton from "../components/AppButton";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
@@ -17,7 +17,7 @@ import {
 const InfoRow = ({ icon, label, value }) => (
   <View style={styles.infoRow}>
     <View style={styles.infoIconWrap}>
-      <Ionicons name={icon} size={16} color={colors.primary} />
+      <AppIcon name={icon} size={16} color={colors.primary} />
     </View>
     <View style={{ flex: 1, gap: 2 }}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -47,13 +47,13 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.panel}>
-        <InfoRow icon="mail-outline" label="Email" value={owner?.email || "Not available"} />
+        <InfoRow icon="email-outline" label="Email" value={owner?.email || "Not available"} />
         <InfoRow
-          icon="radio-outline"
+          icon="store-check-outline"
           label="Socket"
           value={isConnected ? "Connected" : "Disconnected"}
         />
-        <InfoRow icon="phone-portrait-outline" label="App Version" value={appVersion} />
+        <InfoRow icon="cellphone" label="App Version" value={appVersion} />
         {__DEV__ ? (
           <InfoRow icon="cloud-outline" label="Backend URL" value={API_BASE_URL} />
         ) : null}
@@ -62,7 +62,7 @@ export default function SettingsScreen() {
       <AppButton
         label="Logout"
         variant="danger"
-        leftIcon="log-out-outline"
+        leftIcon="logout"
         onPress={() =>
           Alert.alert("Logout", "Do you want to logout from the owner app?", [
             { text: "Cancel", style: "cancel" },

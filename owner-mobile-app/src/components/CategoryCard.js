@@ -1,5 +1,5 @@
 import { Image, StyleSheet, Text, View } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "./AppIcon";
 import AppButton from "./AppButton";
 import { colors, radius, shadow, spacing, typography } from "../theme/theme";
 
@@ -27,7 +27,7 @@ export default function CategoryCard({ category, onEdit, onDelete }) {
             </Text>
           </View>
           <View style={styles.iconBadge}>
-            <Ionicons name="layers-outline" size={18} color={colors.primary} />
+            <AppIcon name="shape-outline" size={18} color={colors.primary} />
           </View>
         </View>
 
@@ -36,7 +36,7 @@ export default function CategoryCard({ category, onEdit, onDelete }) {
             label="Edit"
             variant="secondary"
             size="sm"
-            leftIcon="create-outline"
+            leftIcon="pencil-outline"
             onPress={onEdit}
             fullWidth={false}
           />
@@ -44,7 +44,7 @@ export default function CategoryCard({ category, onEdit, onDelete }) {
             label="Delete"
             variant="ghost"
             size="sm"
-            leftIcon="trash-outline"
+            leftIcon="trash-can-outline"
             onPress={onDelete}
             fullWidth={false}
           />

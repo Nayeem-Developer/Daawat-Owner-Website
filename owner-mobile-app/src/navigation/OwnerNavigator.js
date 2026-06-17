@@ -1,7 +1,7 @@
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "../components/AppIcon";
 import LoginScreen from "../screens/LoginScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import OrdersScreen from "../screens/OrdersScreen";
@@ -39,7 +39,7 @@ const screenOptions = ({ navigation, route }) => ({
             style={styles.headerAction}
             onPress={() => navigation.navigate("Settings")}
           >
-            <Ionicons name="settings-outline" size={18} color={colors.primary} />
+            <AppIcon name="cog-outline" size={18} color={colors.primary} />
           </Pressable>
         ),
 });

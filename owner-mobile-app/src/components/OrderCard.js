@@ -1,5 +1,5 @@
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "./AppIcon";
 import AppButton from "./AppButton";
 import {
   colors,
@@ -24,13 +24,13 @@ const getActionsForStatus = (status) => {
         label: "Accept",
         status: "Accepted",
         variant: "success",
-        icon: "checkmark-outline",
+        icon: "check-circle-outline",
       },
       {
         label: "Reject",
         status: "Rejected",
         variant: "danger",
-        icon: "close-outline",
+        icon: "close-circle-outline",
       },
     ];
   }
@@ -41,13 +41,13 @@ const getActionsForStatus = (status) => {
         label: "Out for Delivery",
         status: "Out for delivery",
         variant: "primary",
-        icon: "bicycle-outline",
+        icon: "truck-delivery-outline",
       },
       {
         label: "Cancel",
         status: "Cancelled",
         variant: "ghost",
-        icon: "close-outline",
+        icon: "close-circle-outline",
       },
     ];
   }
@@ -58,7 +58,7 @@ const getActionsForStatus = (status) => {
         label: "Delivered",
         status: "Delivered",
         variant: "success",
-        icon: "cube-outline",
+        icon: "truck-delivery-outline",
       },
     ];
   }
@@ -68,7 +68,7 @@ const getActionsForStatus = (status) => {
 
 const MetaChip = ({ icon, label }) => (
   <View style={styles.metaChip}>
-    <Ionicons name={icon} size={14} color={colors.textSoft} />
+    <AppIcon name={icon} size={14} color={colors.textSoft} />
     <Text style={styles.metaChipText}>{label}</Text>
   </View>
 );
@@ -94,7 +94,7 @@ export default function OrderCard({ order, onStatusPress, pendingStatus = "" }) 
             },
           ]}
         >
-          <Ionicons name={statusPalette.icon} size={14} color={statusPalette.text} />
+          <AppIcon name={statusPalette.icon} size={14} color={statusPalette.text} />
           <Text style={[styles.statusText, { color: statusPalette.text }]}>{status}</Text>
         </View>
       </View>
@@ -113,8 +113,8 @@ export default function OrderCard({ order, onStatusPress, pendingStatus = "" }) 
       <Text style={styles.address}>{order?.addressText || order?.address || "Address not available"}</Text>
 
       <View style={styles.metaRow}>
-        <MetaChip icon="card-outline" label={order?.paymentMethod || "N/A"} />
-        <MetaChip icon="cash-outline" label={order?.paymentStatus || "Pending"} />
+        <MetaChip icon="credit-card-outline" label={order?.paymentMethod || "N/A"} />
+        <MetaChip icon="cash-check" label={order?.paymentStatus || "Pending"} />
       </View>
 
       <View style={styles.section}>
@@ -149,7 +149,7 @@ export default function OrderCard({ order, onStatusPress, pendingStatus = "" }) 
             Linking.openURL(`https://www.google.com/maps?q=${order.latitude},${order.longitude}`)
           }
         >
-          <Ionicons name="location-outline" size={16} color={colors.primary} />
+          <AppIcon name="map-marker-outline" size={16} color={colors.primary} />
           <Text style={styles.locationText}>Open location</Text>
         </Pressable>
       ) : null}

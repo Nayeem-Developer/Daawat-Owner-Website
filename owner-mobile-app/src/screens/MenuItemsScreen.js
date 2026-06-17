@@ -271,7 +271,7 @@ export default function MenuItemsScreen() {
           </View>
           <AppButton
             label="Add"
-            leftIcon="add-outline"
+            leftIcon="plus"
             onPress={handleOpenCreate}
             fullWidth={false}
           />

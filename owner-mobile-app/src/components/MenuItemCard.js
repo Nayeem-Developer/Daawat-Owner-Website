@@ -1,5 +1,5 @@
 import { Image, StyleSheet, Text, View } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "./AppIcon";
 import AppButton from "./AppButton";
 import { colors, getStatusPalette, radius, shadow, spacing, typography } from "../theme/theme";
 import { formatCurrency } from "../utils/formatters";
@@ -36,8 +36,8 @@ export default function MenuItemCard({
 
         <View style={styles.badges}>
           <View style={[styles.badge, item?.isVeg ? styles.vegBadge : styles.nonVegBadge]}>
-            <Ionicons
-              name={item?.isVeg ? "leaf-outline" : "flame-outline"}
+            <AppIcon
+              name={item?.isVeg ? "leaf" : "food-drumstick"}
               size={13}
               color={item?.isVeg ? colors.success : colors.warning}
             />
@@ -60,7 +60,7 @@ export default function MenuItemCard({
               },
             ]}
           >
-            <Ionicons name={availability.icon} size={13} color={availability.text} />
+            <AppIcon name={availability.icon} size={13} color={availability.text} />
             <Text style={[styles.badgeText, { color: availability.text }]}>
               {item?.isAvailable ? "Available" : "Unavailable"}
             </Text>
@@ -72,7 +72,7 @@ export default function MenuItemCard({
             label="Edit"
             variant="secondary"
             size="sm"
-            leftIcon="create-outline"
+            leftIcon="pencil-outline"
             onPress={onEdit}
             fullWidth={false}
           />
@@ -89,7 +89,7 @@ export default function MenuItemCard({
             label="Delete"
             variant="ghost"
             size="sm"
-            leftIcon="trash-outline"
+            leftIcon="trash-can-outline"
             onPress={onDelete}
             fullWidth={false}
           />

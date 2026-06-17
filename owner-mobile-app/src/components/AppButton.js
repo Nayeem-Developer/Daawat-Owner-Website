@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import AppIcon from "./AppIcon";
 import { colors, radius, shadow, spacing, typography } from "../theme/theme";
 
 const VARIANTS = {
@@ -122,7 +122,7 @@ export default function AppButton({
         ) : (
           <>
             {leftIcon ? (
-              <Ionicons name={leftIcon} size={metrics.icon} color={palette.icon} />
+              <AppIcon name={leftIcon} size={metrics.icon} color={palette.icon} />
             ) : null}
             <Text
               style={[
@@ -137,7 +137,7 @@ export default function AppButton({
               {label}
             </Text>
             {rightIcon ? (
-              <Ionicons name={rightIcon} size={metrics.icon} color={palette.icon} />
+              <AppIcon name={rightIcon} size={metrics.icon} color={palette.icon} />
             ) : null}
           </>
         )}

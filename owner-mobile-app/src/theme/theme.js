@@ -95,7 +95,7 @@ export const getStatusPalette = (status) => {
       background: colors.warningSoft,
       text: colors.warning,
       border: "#f1c99e",
-      icon: "time-outline",
+      icon: "clock-outline",
     };
   }
 
@@ -110,7 +110,7 @@ export const getStatusPalette = (status) => {
       background: colors.successSoft,
       text: colors.success,
       border: "#bfe5ce",
-      icon: "checkmark-circle-outline",
+      icon: "check-circle-outline",
     };
   }
 
@@ -119,7 +119,7 @@ export const getStatusPalette = (status) => {
       background: colors.infoSoft,
       text: colors.info,
       border: "#c5ddec",
-      icon: "bicycle-outline",
+      icon: "truck-delivery-outline",
     };
   }
 
@@ -128,7 +128,7 @@ export const getStatusPalette = (status) => {
       background: colors.successSoft,
       text: colors.success,
       border: "#bfe5ce",
-      icon: "cube-outline",
+      icon: "truck-delivery-outline",
     };
   }
 
@@ -149,6 +149,6 @@ export const getStatusPalette = (status) => {
     background: colors.goldSoft,
     text: colors.gold,
     border: "#edd5a8",
-    icon: "ellipse-outline",
+    icon: "help-circle-outline",
   };
 };

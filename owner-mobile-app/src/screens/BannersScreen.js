@@ -10,9 +10,9 @@ import {
   Text,
   View,
 } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect } from "@react-navigation/native";
 import { launchImageLibrary } from "react-native-image-picker";
+import AppIcon from "../components/AppIcon";
 import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import {
@@ -248,7 +248,7 @@ export default function BannersScreen() {
           </View>
           <AppButton
             label="Add"
-            leftIcon="add-outline"
+            leftIcon="plus"
             onPress={handleOpenCreate}
             fullWidth={false}
           />
@@ -264,7 +264,7 @@ export default function BannersScreen() {
               <View key={banner._id} style={styles.bannerCard}>
                 <View style={styles.bannerHeader}>
                   <View style={styles.bannerIconWrap}>
-                    <Ionicons name="megaphone-outline" size={18} color={colors.primary} />
+                    <AppIcon name="bullhorn-outline" size={18} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1, gap: spacing.xs }}>
                     <Text style={styles.bannerTitle}>{banner.title || "Untitled banner"}</Text>
@@ -299,7 +299,7 @@ export default function BannersScreen() {
                     label="Edit"
                     variant="secondary"
                     size="sm"
-                    leftIcon="create-outline"
+                    leftIcon="pencil-outline"
                     onPress={() => handleOpenEdit(banner)}
                     fullWidth={false}
                   />
@@ -307,7 +307,7 @@ export default function BannersScreen() {
                     label="Delete"
                     variant="ghost"
                     size="sm"
-                    leftIcon="trash-outline"
+                    leftIcon="trash-can-outline"
                     onPress={() => handleDelete(banner)}
                     fullWidth={false}
                   />

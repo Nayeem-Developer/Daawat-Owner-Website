@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import AppIcon from "../components/AppIcon";
 import DashboardCard from "../components/DashboardCard";
@@ -32,13 +33,6 @@ const quickActions = [
     screen: "Orders",
     icon: "receipt-text-outline",
     tone: "primary",
-  },
-  {
-    title: "Calendar",
-    subtitle: "View orders by date",
-    screen: "Calendar",
-    icon: "calendar-month-outline",
-    tone: "info",
   },
   {
     title: "Categories",
@@ -77,13 +71,91 @@ const quickActions = [
   },
 ];
 
+const getOrderDateValue = (order) =>
+  order?.createdAt || order?.created_at || order?.date || order?.updatedAt || order?.updated_at;
+
+const isSameLocalDate = (value, date) => {
+  if (!value || !date) {
+    return false;
+  }
+
+  const orderDate = new Date(value);
+  const selected = new Date(date);
+
+  if (Number.isNaN(orderDate.getTime()) || Number.isNaN(selected.getTime())) {
+    return false;
+  }
+
+  return (
+    orderDate.getFullYear() === selected.getFullYear() &&
+    orderDate.getMonth() === selected.getMonth() &&
+    orderDate.getDate() === selected.getDate()
+  );
+};
+
+const formatSelectedDateLabel = (value) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+const getDashboardStats = (orders = []) =>
+  orders.reduce(
+    (stats, order) => {
+      const status = String(order?.status || order?.orderStatus || "").trim().toLowerCase();
+
+      stats.totalOrders += 1;
+
+      if (status === "placed" || status === "pending" || status.includes("pending")) {
+        stats.pendingOrders += 1;
+      }
+
+      if (
+        status === "accepted" ||
+        status === "confirmed" ||
+        status.includes("accepted") ||
+        status.includes("confirmed")
+      ) {
+        stats.acceptedOrders += 1;
+      }
+
+      if (status === "delivered" || status.includes("delivered")) {
+        stats.deliveredOrders += 1;
+        stats.totalRevenue += Number(order?.total || 0);
+      }
+
+      if (status.includes("cancel") || status.includes("reject") || status.includes("expired")) {
+        stats.cancelledOrders += 1;
+      }
+
+      return stats;
+    },
+    {
+      totalOrders: 0,
+      pendingOrders: 0,
+      acceptedOrders: 0,
+      deliveredOrders: 0,
+      cancelledOrders: 0,
+      totalRevenue: 0,
+    }
+  );
+
 export default function DashboardScreen() {
   const navigation = useNavigation();
   const { lastOrderEvent, lastAppStatusEvent } = useSocket();
   const { refreshSignal } = useOrderAlert();
-  const [stats, setStats] = useState({});
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [overallStats, setOverallStats] = useState({});
+  const [orders, setOrders] = useState([]);
   const [appStatus, setAppStatus] = useState({ isActive: true, message: "" });
+  const [selectedDate, setSelectedDate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -94,7 +166,7 @@ export default function DashboardScreen() {
 
       const [statsResult, ordersResult, appStatusResult] = await Promise.allSettled([
         fetchOrderStats(),
-        fetchOrders({ limit: 10 }),
+        fetchOrders({ limit: 100 }),
         fetchAppStatus(),
       ]);
 
@@ -109,10 +181,10 @@ export default function DashboardScreen() {
           ? appStatusResult.value
           : { isActive: true, message: "" };
 
-      const orders = (ordersResponse?.orders || []).slice(0, 5);
-      const derivedStats = computeOrderStats(ordersResponse?.orders || []);
+      const allOrders = ordersResponse?.orders || [];
+      const derivedStats = computeOrderStats(allOrders);
 
-      setStats({
+      setOverallStats({
         totalOrders: statsResponse?.totalOrders ?? derivedStats.totalOrders,
         pendingOrders: statsResponse?.pendingOrders ?? derivedStats.pendingOrders,
         acceptedOrders: statsResponse?.acceptedOrders ?? derivedStats.acceptedOrders,
@@ -120,7 +192,7 @@ export default function DashboardScreen() {
         cancelledOrders: statsResponse?.cancelledOrders ?? derivedStats.cancelledOrders,
         totalRevenue: statsResponse?.totalRevenue ?? derivedStats.totalRevenue,
       });
-      setRecentOrders(orders);
+      setOrders(allOrders);
       setAppStatus(appStatusResponse || { isActive: true, message: "" });
 
       const firstError =
@@ -135,8 +207,8 @@ export default function DashboardScreen() {
     } catch (loadError) {
       if (loadError?.status !== 401) {
         setError(loadError?.message || "Unable to load dashboard data right now.");
-        setStats({});
-        setRecentOrders([]);
+        setOverallStats({});
+        setOrders([]);
       }
     } finally {
       setLoading(false);
@@ -164,52 +236,97 @@ export default function DashboardScreen() {
       if (!lastOrderEvent && !lastAppStatusEvent) {
         return undefined;
       }
+
       void loadDashboard();
       return undefined;
     }, [lastAppStatusEvent, lastOrderEvent, loadDashboard])
   );
 
+  const filteredOrders = useMemo(() => {
+    if (!selectedDate) {
+      return orders;
+    }
+
+    return orders.filter((order) => isSameLocalDate(getOrderDateValue(order), selectedDate));
+  }, [orders, selectedDate]);
+
+  const displayStats = useMemo(() => {
+    if (!selectedDate) {
+      return {
+        totalOrders: overallStats?.totalOrders ?? 0,
+        pendingOrders: overallStats?.pendingOrders ?? 0,
+        acceptedOrders: overallStats?.acceptedOrders ?? 0,
+        deliveredOrders: overallStats?.deliveredOrders ?? 0,
+        cancelledOrders: overallStats?.cancelledOrders ?? 0,
+        totalRevenue: overallStats?.totalRevenue ?? 0,
+      };
+    }
+
+    return getDashboardStats(filteredOrders);
+  }, [filteredOrders, overallStats, selectedDate]);
+
+  const displayedOrders = selectedDate ? filteredOrders : orders.slice(0, 5);
+  const isDateFilterActive = Boolean(selectedDate);
+  const selectedDateLabel = isDateFilterActive ? formatSelectedDateLabel(selectedDate) : "";
+  const sectionSubtitle = isDateFilterActive
+    ? `Showing orders for ${selectedDateLabel}`
+    : "All orders overview";
+
   const summaryCards = useMemo(
     () => [
-        {
-          title: "Total Orders",
-          value: String(stats?.totalOrders ?? 0),
-          icon: "receipt-text-outline",
-          tone: "primary",
-        },
-        {
-          title: "Pending",
-          value: String(stats?.pendingOrders ?? 0),
-          icon: "clock-outline",
-          tone: "warning",
-        },
-        {
-          title: "Accepted",
-          value: String(stats?.acceptedOrders ?? 0),
-          icon: "check-circle-outline",
-          tone: "success",
-        },
-        {
-          title: "Delivered",
-          value: String(stats?.deliveredOrders ?? 0),
-          icon: "truck-delivery-outline",
-          tone: "info",
-        },
+      {
+        title: "Total Orders",
+        value: String(displayStats?.totalOrders ?? 0),
+        icon: "receipt-text-outline",
+        tone: "primary",
+      },
+      {
+        title: "Pending",
+        value: String(displayStats?.pendingOrders ?? 0),
+        icon: "clock-outline",
+        tone: "warning",
+      },
+      {
+        title: "Accepted",
+        value: String(displayStats?.acceptedOrders ?? 0),
+        icon: "check-circle-outline",
+        tone: "success",
+      },
+      {
+        title: "Delivered",
+        value: String(displayStats?.deliveredOrders ?? 0),
+        icon: "truck-delivery-outline",
+        tone: "info",
+      },
       {
         title: "Cancelled",
-        value: String(stats?.cancelledOrders ?? 0),
+        value: String(displayStats?.cancelledOrders ?? 0),
         icon: "close-circle-outline",
         tone: "danger",
       },
-        {
-          title: "Revenue",
-          value: formatCurrency(stats?.totalRevenue ?? 0),
-          icon: "cash-multiple",
-          tone: "gold",
-        },
+      {
+        title: "Revenue",
+        value: formatCurrency(displayStats?.totalRevenue ?? 0),
+        icon: "cash-multiple",
+        tone: "gold",
+      },
     ],
-    [stats]
+    [displayStats]
   );
+
+  const handleOpenDatePicker = () => {
+    DateTimePickerAndroid.open({
+      value: selectedDate || new Date(),
+      mode: "date",
+      display: "calendar",
+      maximumDate: new Date(),
+      onChange: (event, date) => {
+        if (event.type === "set" && date) {
+          setSelectedDate(date);
+        }
+      },
+    });
+  };
 
   const appStatusState = appStatus?.isActive ? "Active" : "Inactive";
   const appStatusDescription = appStatus?.isActive ? "Accepting orders" : "Not accepting orders";
@@ -287,7 +404,29 @@ export default function DashboardScreen() {
       ) : null}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today at a glance</Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTextWrap}>
+            <Text style={styles.sectionTitle}>Today at a glance</Text>
+            <Text style={styles.sectionSubtitle}>{sectionSubtitle}</Text>
+          </View>
+          <View style={styles.sectionActions}>
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+              onPress={handleOpenDatePicker}
+            >
+              <AppIcon name="calendar-month-outline" size={18} color={colors.primary} />
+            </Pressable>
+            {isDateFilterActive ? (
+              <Pressable
+                style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+                onPress={() => setSelectedDate(null)}
+              >
+                <AppIcon name="refresh" size={18} color={colors.primary} />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+
         <View style={styles.statsGrid}>
           {summaryCards.map((card) => (
             <DashboardCard
@@ -320,19 +459,28 @@ export default function DashboardScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Recent Orders</Text>
+          <View style={styles.sectionTextWrap}>
+            <Text style={styles.sectionTitle}>
+              {isDateFilterActive ? "Orders for selected date" : "Recent Orders"}
+            </Text>
+            {isDateFilterActive ? (
+              <Text style={styles.sectionSubtitle}>Showing orders for {selectedDateLabel}</Text>
+            ) : null}
+          </View>
           <Pressable onPress={() => navigation.navigate("Orders")}>
             <Text style={styles.linkText}>View all</Text>
           </Pressable>
         </View>
 
         <View style={styles.ordersList}>
-          {recentOrders.length === 0 ? (
+          {displayedOrders.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No recent orders available yet.</Text>
+              <Text style={styles.emptyText}>
+                {isDateFilterActive ? "No orders for this date" : "No recent orders available yet."}
+              </Text>
             </View>
           ) : (
-            recentOrders.map((order) => {
+            displayedOrders.map((order) => {
               const statusPalette = getStatusPalette(order?.status || order?.orderStatus);
 
               return (
@@ -359,7 +507,7 @@ export default function DashboardScreen() {
 
                   <View style={styles.orderBottomRow}>
                     <Text style={styles.orderMeta}>{formatCurrency(order?.total ?? 0)}</Text>
-                    <Text style={styles.orderMeta}>{formatDateTime(order?.createdAt)}</Text>
+                    <Text style={styles.orderMeta}>{formatDateTime(getOrderDateValue(order))}</Text>
                   </View>
                 </View>
               );
@@ -496,11 +644,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: spacing.md,
+  },
+  sectionTextWrap: {
+    flex: 1,
+    gap: spacing.xs,
   },
   sectionTitle: {
     color: colors.text,
     fontSize: typography.section,
     fontWeight: "800",
+  },
+  sectionSubtitle: {
+    color: colors.muted,
+    fontSize: typography.small,
+    fontWeight: "600",
+  },
+  sectionActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow,
+  },
+  iconButtonPressed: {
+    opacity: 0.92,
   },
   linkText: {
     color: colors.primary,

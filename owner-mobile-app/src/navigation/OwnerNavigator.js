@@ -18,10 +18,12 @@ const Stack = createNativeStackNavigator();
 const logo = require("../../assets/branding/daawat-logo.png");
 
 const screenOptions = ({ navigation, route }) => ({
+  headerShown: route.name !== "Dashboard",
   headerStyle: {
     backgroundColor: colors.backgroundAlt,
   },
   headerTintColor: colors.text,
+  headerTitle: "",
   headerTitleStyle: {
     color: colors.text,
     fontSize: typography.cardTitle,

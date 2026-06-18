@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import api, { API_BASE_URL, TOKEN_KEY, getErrorMessage } from "../services/api";
+import api, {
+  API_BASE_URL,
+  TOKEN_KEY,
+  clearOwnerSession,
+  consumeSessionMessage,
+  getErrorMessage,
+  getOwnerToken,
+} from "../services/api";
 import logo from "../assets/images/daawat-logo.png";
 
 export default function Login() {
@@ -13,7 +20,12 @@ export default function Login() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const sessionMessage = consumeSessionMessage();
+    if (sessionMessage) {
+      setError(sessionMessage);
+    }
+
+    const token = getOwnerToken();
     if (token) {
       navigate("/", { replace: true });
     }
@@ -37,6 +49,7 @@ export default function Login() {
         throw new Error("Token not returned from login API");
       }
 
+      clearOwnerSession();
       localStorage.setItem(TOKEN_KEY, token);
 
       const redirectPath = location.state?.from?.pathname || "/";

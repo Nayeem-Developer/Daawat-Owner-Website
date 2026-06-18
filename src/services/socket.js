@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-import { API_BASE_URL, TOKEN_KEY } from "./api";
+import { API_BASE_URL, getOwnerToken } from "./api";
 
 let socketInstance;
 
@@ -18,7 +18,7 @@ export const getSocket = () => {
 
 export const connectSocket = () => {
   const socket = getSocket();
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getOwnerToken();
 
   socket.auth = token ? { token } : {};
 

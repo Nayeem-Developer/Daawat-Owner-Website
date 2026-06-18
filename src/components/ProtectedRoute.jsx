@@ -1,9 +1,9 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { TOKEN_KEY } from "../services/api";
+import { getOwnerToken } from "../services/api";
 
 export default function ProtectedRoute({ children }) {
   const location = useLocation();
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getOwnerToken();
 
   if (!token) {
     return <Navigate to="/login" replace state={{ from: location }} />;

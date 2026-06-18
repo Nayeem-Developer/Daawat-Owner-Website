@@ -1,6 +1,37 @@
 import axios from "axios";
 
-export const TOKEN_KEY = "daawat_owner_token";
+export const TOKEN_KEY = "ownerToken";
+export const AUTH_STORAGE_KEYS = [
+  "ownerToken",
+  "token",
+  "authToken",
+  "adminToken",
+  "ownerUser",
+  "user",
+];
+export const SESSION_EXPIRED_MESSAGE = "Session expired. Please login again.";
+export const SESSION_MESSAGE_KEY = "ownerSessionMessage";
+const LOGIN_PATH = "/login";
+
+export const getOwnerToken = () => localStorage.getItem(TOKEN_KEY);
+
+export const clearOwnerSession = () => {
+  AUTH_STORAGE_KEYS.forEach((key) => {
+    localStorage.removeItem(key);
+  });
+};
+
+export const consumeSessionMessage = () => {
+  const message = sessionStorage.getItem(SESSION_MESSAGE_KEY) || "";
+  if (message) {
+    sessionStorage.removeItem(SESSION_MESSAGE_KEY);
+  }
+  return message;
+};
+
+const storeSessionMessage = (message) => {
+  sessionStorage.setItem(SESSION_MESSAGE_KEY, message);
+};
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://daawat-backend.onrender.com";
@@ -11,7 +42,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getOwnerToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -23,6 +54,20 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status;
+    const requestUrl = error.config?.url || "";
+    const isOwnerApiRequest = requestUrl.includes("/api/owner");
+    const isLoginRequest = requestUrl.includes("/api/owner/login");
+
+    if (status === 401 && isOwnerApiRequest && !isLoginRequest) {
+      clearOwnerSession();
+      storeSessionMessage(SESSION_EXPIRED_MESSAGE);
+
+      if (typeof window !== "undefined" && window.location.pathname !== LOGIN_PATH) {
+        window.location.replace(LOGIN_PATH);
+      }
+    }
+
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
@@ -31,7 +76,7 @@ api.interceptors.response.use(
 
     return Promise.reject({
       ...error,
-      status: error.response?.status,
+      status,
       data: error.response?.data,
       message,
     });

@@ -4,7 +4,7 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 import Modal from "./Modal";
 import Toast from "./Toast";
-import api, { TOKEN_KEY, getErrorMessage } from "../services/api";
+import api, { clearOwnerSession, getErrorMessage } from "../services/api";
 import { connectSocket, disconnectSocket } from "../services/socket";
 import {
   formatCurrency,
@@ -821,7 +821,7 @@ export default function Layout() {
   ]);
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
+    clearOwnerSession();
     disconnectSocket();
     navigate("/login", { replace: true });
   }, [navigate]);

@@ -2,6 +2,7 @@ import { StatusBar, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import OwnerNavigator from "./src/navigation/OwnerNavigator";
 import { AuthProvider } from "./src/context/AuthContext";
+import { OrderAlertProvider } from "./src/context/OrderAlertContext";
 import { SocketProvider } from "./src/context/SocketContext";
 import { colors } from "./src/theme/theme";
 
@@ -11,8 +12,10 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <SocketProvider>
-            <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-            <OwnerNavigator />
+            <OrderAlertProvider>
+              <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+              <OwnerNavigator />
+            </OrderAlertProvider>
           </SocketProvider>
         </AuthProvider>
       </SafeAreaProvider>

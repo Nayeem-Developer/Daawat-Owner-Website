@@ -26,6 +26,7 @@ npx react-native run-android
 - Test credentials are not stored in source code.
 - Socket.io reconnects after login and refreshes order-related screens when events arrive.
 - This app does not use Expo or Expo Go.
+- Place a loud royalty-free MP3 at `src/assets/sounds/owner_order_alert.mp3` for the persistent owner order alert sound.
 
 ## Android CMake/Ninja Troubleshooting
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,6 +12,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import AppIcon from "../components/AppIcon";
 import DashboardCard from "../components/DashboardCard";
 import { fetchAppStatus, fetchOrderStats, fetchOrders } from "../api/ownerApi";
+import { useOrderAlert } from "../context/OrderAlertContext";
 import { useSocket } from "../context/SocketContext";
 import {
   colors,
@@ -79,6 +80,7 @@ const quickActions = [
 export default function DashboardScreen() {
   const navigation = useNavigation();
   const { lastOrderEvent, lastAppStatusEvent } = useSocket();
+  const { refreshSignal } = useOrderAlert();
   const [stats, setStats] = useState({});
   const [recentOrders, setRecentOrders] = useState([]);
   const [appStatus, setAppStatus] = useState({ isActive: true, message: "" });
@@ -148,6 +150,14 @@ export default function DashboardScreen() {
       void loadDashboard();
     }, [loadDashboard])
   );
+
+  useEffect(() => {
+    if (!refreshSignal) {
+      return;
+    }
+
+    void loadDashboard();
+  }, [loadDashboard, refreshSignal]);
 
   useFocusEffect(
     useCallback(() => {

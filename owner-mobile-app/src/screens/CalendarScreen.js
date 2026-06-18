@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import AppButton from "../components/AppButton";
 import AppIcon from "../components/AppIcon";
 import { fetchOrders } from "../api/ownerApi";
+import { useOrderAlert } from "../context/OrderAlertContext";
 import { useSocket } from "../context/SocketContext";
 import {
   colors,
@@ -35,6 +36,12 @@ const shiftDate = (value, amount) => {
   const date = getStartOfDay(value);
   date.setDate(date.getDate() + amount);
   return date;
+};
+
+const clampToToday = (value) => {
+  const normalizedValue = getStartOfDay(value);
+  const today = getStartOfDay(new Date());
+  return normalizedValue.getTime() > today.getTime() ? today : normalizedValue;
 };
 
 const getOrderDateValue = (order) =>
@@ -93,6 +100,7 @@ const formatOrderTime = (value) => {
 
 export default function CalendarScreen() {
   const { lastOrderEvent } = useSocket();
+  const { refreshSignal } = useOrderAlert();
   const [orders, setOrders] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -121,6 +129,14 @@ export default function CalendarScreen() {
     }, [loadOrders])
   );
 
+  useEffect(() => {
+    if (!refreshSignal) {
+      return;
+    }
+
+    void loadOrders();
+  }, [loadOrders, refreshSignal]);
+
   useFocusEffect(
     useCallback(() => {
       if (!lastOrderEvent?.receivedAt || lastOrderEvent.receivedAt === lastHandledEvent.current) {
@@ -146,12 +162,13 @@ export default function CalendarScreen() {
 
   const handleOpenDatePicker = () => {
     DateTimePickerAndroid.open({
-      value: selectedDate,
+      value: clampToToday(selectedDate),
       mode: "date",
       display: "calendar",
+      maximumDate: new Date(),
       onChange: (event, date) => {
         if (event.type === "set" && date) {
-          setSelectedDate(date);
+          setSelectedDate(clampToToday(date));
         }
       },
     });
@@ -219,7 +236,7 @@ export default function CalendarScreen() {
             size="sm"
             fullWidth={false}
             leftIcon="chevron-left"
-            onPress={() => setSelectedDate((current) => shiftDate(current, -1))}
+            onPress={() => setSelectedDate((current) => clampToToday(shiftDate(current, -1)))}
           />
           <AppButton
             label="Today"
@@ -234,7 +251,8 @@ export default function CalendarScreen() {
             size="sm"
             fullWidth={false}
             rightIcon="chevron-right"
-            onPress={() => setSelectedDate((current) => shiftDate(current, 1))}
+            onPress={() => setSelectedDate((current) => clampToToday(shiftDate(current, 1)))}
+            disabled={isToday}
           />
         </View>
       </View>

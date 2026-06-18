@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import OrderCard from "../components/OrderCard";
 import { fetchOrders, updateOrderStatus } from "../api/ownerApi";
+import { useOrderAlert } from "../context/OrderAlertContext";
 import { useSocket } from "../context/SocketContext";
 import { colors, layout, spacing, typography } from "../theme/theme";
 
@@ -58,6 +59,7 @@ const matchesFilter = (order, activeFilter) => {
 
 export default function OrdersScreen() {
   const { lastOrderEvent } = useSocket();
+  const { refreshSignal, requestOrderAlertRefresh } = useOrderAlert();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,6 +87,14 @@ export default function OrdersScreen() {
     }, [loadOrders])
   );
 
+  useEffect(() => {
+    if (!refreshSignal) {
+      return;
+    }
+
+    void loadOrders();
+  }, [loadOrders, refreshSignal]);
+
   useFocusEffect(
     useCallback(() => {
       if (!lastOrderEvent?.receivedAt || lastOrderEvent.receivedAt === lastHandledEvent.current) {
@@ -93,10 +103,6 @@ export default function OrdersScreen() {
 
       lastHandledEvent.current = lastOrderEvent.receivedAt;
       void loadOrders();
-
-      if (["new_order", "order_created"].includes(lastOrderEvent.eventName)) {
-        Alert.alert("New Order", "A new order arrived. The list has been refreshed.");
-      }
 
       return undefined;
     }, [lastOrderEvent, loadOrders])
@@ -122,20 +128,24 @@ export default function OrdersScreen() {
     });
   }, [activeFilter, orders, search]);
 
-  const handleStatusUpdate = async (orderId, nextStatus) => {
-    try {
-      setPendingAction({ orderId, status: nextStatus });
-      const updated = await updateOrderStatus(orderId, nextStatus);
-      setOrders((current) =>
-        current.map((item) => (item._id === orderId ? { ...item, ...updated } : item))
-      );
-      Alert.alert("Success", `Order moved to ${nextStatus}.`);
-    } catch (error) {
-      Alert.alert("Update failed", error?.message || "Unable to update order status");
-    } finally {
-      setPendingAction({ orderId: "", status: "" });
-    }
-  };
+  const handleStatusUpdate = useCallback(
+    async (orderId, nextStatus) => {
+      try {
+        setPendingAction({ orderId, status: nextStatus });
+        const updated = await updateOrderStatus(orderId, nextStatus);
+        setOrders((current) =>
+          current.map((item) => (item._id === orderId ? { ...item, ...updated } : item))
+        );
+        void requestOrderAlertRefresh({ broadcast: true });
+        Alert.alert("Success", `Order moved to ${nextStatus}.`);
+      } catch (error) {
+        Alert.alert("Update failed", error?.message || "Unable to update order status");
+      } finally {
+        setPendingAction({ orderId: "", status: "" });
+      }
+    },
+    [requestOrderAlertRefresh]
+  );
 
   if (loading) {
     return (

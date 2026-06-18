@@ -13,6 +13,7 @@
     "react-native-image-picker": "^8.2.1",
     "react-native-safe-area-context": "^5.8.0",
     "react-native-screens": "^4.25.2",
+    "react-native-sound": "^0.13.0",
     "react-native-vector-icons": "^10.3.0",
     "socket.io-client": "^4.8.3"
   },
@@ -20,7 +21,8 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "clean:android": "cd android && gradlew clean"
+    "clean:android": "cd android && gradlew clean",
+    "postinstall": "node scripts/generate-rn-sound-codegen.js"
   },
   "private": true,
   "devDependencies": {

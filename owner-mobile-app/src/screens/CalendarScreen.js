@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useFocusEffect } from "@react-navigation/native";
 import AppButton from "../components/AppButton";
 import AppIcon from "../components/AppIcon";
@@ -22,7 +23,7 @@ import {
   spacing,
   typography,
 } from "../theme/theme";
-import { formatCurrency, formatDateTime } from "../utils/formatters";
+import { formatCurrency } from "../utils/formatters";
 
 const getStartOfDay = (value = new Date()) => {
   const date = new Date(value);
@@ -36,34 +37,64 @@ const shiftDate = (value, amount) => {
   return date;
 };
 
-const getDateKey = (value) => {
-  if (!value) {
-    return "";
+const getOrderDateValue = (order) =>
+  order?.createdAt || order?.created_at || order?.date || order?.updatedAt || order?.updated_at;
+
+const isSameLocalDate = (a, b) => {
+  const da = new Date(a);
+  const db = new Date(b);
+
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) {
+    return false;
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
 };
 
-const formatCalendarDate = (value) =>
-  getStartOfDay(value).toLocaleDateString("en-IN", {
+const formatSelectedDate = (value) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  const formatter = new Intl.DateTimeFormat("en-IN", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
+  const parts = formatter.formatToParts(date);
+  const weekday = parts.find((part) => part.type === "weekday")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const year = parts.find((part) => part.type === "year")?.value || "";
+
+  return `${weekday}, ${day} ${month} ${year}`.trim();
+};
+
+const formatOrderTime = (value) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
 export default function CalendarScreen() {
   const { lastOrderEvent } = useSocket();
   const [orders, setOrders] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(getStartOfDay(new Date()));
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -102,12 +133,29 @@ export default function CalendarScreen() {
     }, [lastOrderEvent, loadOrders])
   );
 
-  const filteredOrders = useMemo(() => {
-    const selectedDateKey = getDateKey(selectedDate);
-    return orders.filter((order) => getDateKey(order?.createdAt) === selectedDateKey);
-  }, [orders, selectedDate]);
+  const filteredOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const orderDate = getOrderDateValue(order);
+        return orderDate ? isSameLocalDate(orderDate, selectedDate) : false;
+      }),
+    [orders, selectedDate]
+  );
 
-  const isToday = getDateKey(selectedDate) === getDateKey(new Date());
+  const isToday = isSameLocalDate(selectedDate, new Date());
+
+  const handleOpenDatePicker = () => {
+    DateTimePickerAndroid.open({
+      value: selectedDate,
+      mode: "date",
+      display: "calendar",
+      onChange: (event, date) => {
+        if (event.type === "set" && date) {
+          setSelectedDate(date);
+        }
+      },
+    });
+  };
 
   if (loading) {
     return (
@@ -143,7 +191,26 @@ export default function CalendarScreen() {
           </View>
         </View>
 
-        <Text style={styles.selectedDateText}>{formatCalendarDate(selectedDate)}</Text>
+        <View style={styles.dateCard}>
+          <View style={styles.dateInfoRow}>
+            <View style={styles.dateInfoIconWrap}>
+              <AppIcon name="calendar-search-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.dateInfoTextWrap}>
+              <Text style={styles.dateLabel}>Selected date</Text>
+              <Text style={styles.selectedDateText}>{formatSelectedDate(selectedDate)}</Text>
+            </View>
+          </View>
+
+          <AppButton
+            label="Select Date"
+            variant="secondary"
+            size="sm"
+            fullWidth={false}
+            leftIcon="calendar-search-outline"
+            onPress={handleOpenDatePicker}
+          />
+        </View>
 
         <View style={styles.dateActionsRow}>
           <AppButton
@@ -151,7 +218,7 @@ export default function CalendarScreen() {
             variant="chip"
             size="sm"
             fullWidth={false}
-            leftIcon="arrow-left"
+            leftIcon="chevron-left"
             onPress={() => setSelectedDate((current) => shiftDate(current, -1))}
           />
           <AppButton
@@ -159,7 +226,7 @@ export default function CalendarScreen() {
             variant={isToday ? "primary" : "secondary"}
             size="sm"
             fullWidth={false}
-            onPress={() => setSelectedDate(getStartOfDay(new Date()))}
+            onPress={() => setSelectedDate(new Date())}
           />
           <AppButton
             label="Next"
@@ -188,12 +255,12 @@ export default function CalendarScreen() {
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No orders for this date</Text>
-            <Text style={styles.emptyText}>Try another day or pull to refresh.</Text>
+            <Text style={styles.emptyText}>Try another day, use Select Date, or pull to refresh.</Text>
           </View>
         ) : (
           filteredOrders.map((order) => {
             const statusPalette = getStatusPalette(order?.status || order?.orderStatus);
-            const itemCount = Array.isArray(order?.items) ? order.items.length : 0;
+            const orderDate = getOrderDateValue(order);
 
             return (
               <View key={order?._id || order?.orderId} style={styles.orderCard}>
@@ -217,20 +284,16 @@ export default function CalendarScreen() {
                   </View>
                 </View>
 
-                <View style={styles.metaRow}>
-                  <View style={styles.metaChip}>
-                    <AppIcon name="clock-outline" size={14} color={colors.textSoft} />
-                    <Text style={styles.metaText}>{formatDateTime(order?.createdAt)}</Text>
-                  </View>
+                <View style={styles.orderMetaRow}>
                   <View style={styles.metaChip}>
                     <AppIcon name="cash-multiple" size={14} color={colors.textSoft} />
                     <Text style={styles.metaText}>{formatCurrency(order?.total ?? 0)}</Text>
                   </View>
+                  <View style={styles.metaChip}>
+                    <AppIcon name="clock-outline" size={14} color={colors.textSoft} />
+                    <Text style={styles.metaText}>{formatOrderTime(orderDate)}</Text>
+                  </View>
                 </View>
-
-                <Text style={styles.orderDetails}>
-                  {itemCount} {itemCount === 1 ? "item" : "items"} {order?.addressText ? `| ${order.addressText}` : ""}
-                </Text>
               </View>
             );
           })
@@ -290,6 +353,37 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.muted,
     fontSize: typography.body,
+  },
+  dateCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  dateInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  dateInfoIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
+  },
+  dateInfoTextWrap: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  dateLabel: {
+    color: colors.muted,
+    fontSize: typography.tiny,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   selectedDateText: {
     color: colors.text,
@@ -394,7 +488,7 @@ const styles = StyleSheet.create({
     fontSize: typography.tiny,
     fontWeight: "700",
   },
-  metaRow: {
+  orderMetaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
@@ -414,10 +508,5 @@ const styles = StyleSheet.create({
     color: colors.textSoft,
     fontSize: typography.tiny,
     fontWeight: "600",
-  },
-  orderDetails: {
-    color: colors.muted,
-    fontSize: typography.small,
-    lineHeight: 19,
   },
 });

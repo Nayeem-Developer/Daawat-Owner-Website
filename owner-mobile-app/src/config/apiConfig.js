@@ -3,6 +3,7 @@ export const SOCKET_URL = "https://daawat-backend.onrender.com";
 
 export const API_ROUTES = {
   ownerLogin: "/api/owner/login",
+  ownerChangePassword: "/api/owner/change-password",
   ownerOrders: "/api/owner/orders",
   ownerOrderStats: "/api/owner/orders/stats",
   ownerClearAllOrders: "/api/owner/orders/clear-all",

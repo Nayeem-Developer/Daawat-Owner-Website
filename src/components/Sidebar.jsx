@@ -7,6 +7,7 @@ const navLinks = [
   { to: "/categories", label: "Categories" },
   { to: "/menu-items", label: "Menu Items" },
   { to: "/banners", label: "Banners" },
+  { to: "/settings", label: "Settings" },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {

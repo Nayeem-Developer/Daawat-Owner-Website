@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api, {
   API_BASE_URL,
-  TOKEN_KEY,
+  consumeSessionNotice,
   clearOwnerSession,
-  consumeSessionMessage,
   getErrorMessage,
   getOwnerToken,
+  persistOwnerSession,
 } from "../services/api";
 import logo from "../assets/images/daawat-logo.png";
 
@@ -18,11 +18,16 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
-    const sessionMessage = consumeSessionMessage();
-    if (sessionMessage) {
-      setError(sessionMessage);
+    const sessionNotice = consumeSessionNotice();
+    if (sessionNotice?.message) {
+      if (sessionNotice.type === "success") {
+        setSuccessMessage(sessionNotice.message);
+      } else {
+        setError(sessionNotice.message);
+      }
     }
 
     const token = getOwnerToken();
@@ -37,6 +42,7 @@ export default function Login() {
     try {
       setLoading(true);
       setError("");
+      setSuccessMessage("");
 
       const response = await api.post("/api/owner/login", { email, password });
       const token =
@@ -50,7 +56,7 @@ export default function Login() {
       }
 
       clearOwnerSession();
-      localStorage.setItem(TOKEN_KEY, token);
+      persistOwnerSession(token, response.data?.owner || response.data?.data?.owner || null);
 
       const redirectPath = location.state?.from?.pathname || "/";
       navigate(redirectPath, { replace: true });
@@ -91,6 +97,7 @@ export default function Login() {
             />
           </label>
 
+          {successMessage && <p className="success-msg">{successMessage}</p>}
           {error && <p className="error-msg">{error}</p>}
 
           <button type="submit" className="btn" disabled={loading}>

@@ -78,6 +78,15 @@ export const fetchOwnerProfile = async () => {
   return null;
 };
 
+export const changeOwnerPassword = async ({ currentPassword, newPassword }) => {
+  const response = await apiClient.post(API_ROUTES.ownerChangePassword, {
+    currentPassword,
+    newPassword,
+  });
+
+  return response?.data;
+};
+
 export const fetchOrders = async (params = {}) => {
   const response = await apiClient.get(API_ROUTES.ownerOrders, { params });
   const items = getListFromResponseBody(response?.data, ["orders"])

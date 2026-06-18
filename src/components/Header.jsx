@@ -6,6 +6,8 @@ const titles = {
   "/orders": "Orders",
   "/categories": "Categories",
   "/menu-items": "Menu Items",
+  "/banners": "Banners",
+  "/settings": "Settings",
 };
 
 export default function Header({

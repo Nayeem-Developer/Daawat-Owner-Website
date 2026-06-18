@@ -7,6 +7,7 @@ import Banners from "./pages/Banners";
 import Login from "./pages/Login";
 import MenuItems from "./pages/MenuItems";
 import Orders from "./pages/Orders";
+import Settings from "./pages/Settings";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/categories" element={<Categories />} />
         <Route path="/menu-items" element={<MenuItems />} />
         <Route path="/banners" element={<Banners />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

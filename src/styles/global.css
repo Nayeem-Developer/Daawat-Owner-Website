@@ -644,6 +644,11 @@ textarea:focus {
   font-size: 0.9rem;
 }
 
+.success-msg {
+  color: #8cf2bf;
+  font-size: 0.9rem;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -1182,6 +1187,53 @@ th {
   color: var(--muted);
 }
 
+.settings-page {
+  gap: 1.15rem;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-section-head p {
+  margin-top: 0.2rem;
+  color: var(--muted);
+}
+
+.settings-card-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.settings-card {
+  border: 1px solid rgba(213, 164, 74, 0.24);
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgba(35, 26, 26, 0.92), rgba(18, 14, 14, 0.95));
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-card h4 {
+  font-size: 1.3rem;
+  margin-bottom: 0.25rem;
+}
+
+.settings-card p {
+  color: var(--muted);
+}
+
+.settings-card-danger {
+  border-color: rgba(201, 66, 66, 0.45);
+}
+
+.settings-modal {
+  width: min(540px, 100%);
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -1258,6 +1310,11 @@ th {
   }
 
   .orders-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-card {
     flex-direction: column;
     align-items: flex-start;
   }

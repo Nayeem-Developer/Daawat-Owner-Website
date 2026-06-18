@@ -1,3 +1,6 @@
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
 buildscript {
     ext {
         buildToolsVersion = "36.0.0"
@@ -19,3 +22,34 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+def normalizeWindowsNativeOutputs = { File nativeIntermediatesDir ->
+    if (!nativeIntermediatesDir.exists()) {
+        return
+    }
+
+    nativeIntermediatesDir.eachFileRecurse { soFile ->
+        if (soFile.name == "libc++_shared.so") {
+            def tempFile = new File(soFile.parentFile, "${soFile.name}.tmp")
+            Files.copy(soFile.toPath(), tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            if (!soFile.delete()) {
+                throw new GradleException("Unable to replace hard-linked native output: ${soFile}")
+            }
+            Files.move(tempFile.toPath(), soFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+}
+
+subprojects {
+    tasks.configureEach { task ->
+        if (task.name.contains("CMake") || task.name.contains("NativeLib")) {
+            task.doNotTrackState("Windows NDK builds can emit hard-linked .so outputs that Gradle cannot snapshot.")
+        }
+
+        if (task.name.startsWith("buildCMake")) {
+            task.doLast {
+                normalizeWindowsNativeOutputs(project.file("${project.buildDir}/intermediates/cxx"))
+            }
+        }
+    }
+}

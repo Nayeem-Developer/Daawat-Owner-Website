@@ -26,3 +26,24 @@ npx react-native run-android
 - Test credentials are not stored in source code.
 - Socket.io reconnects after login and refreshes order-related screens when events arrive.
 - This app does not use Expo or Expo Go.
+
+## Android CMake/Ninja Troubleshooting
+
+If the Android CMake or `ninja` build crashes, run:
+
+```powershell
+taskkill /F /IM node.exe
+taskkill /F /IM java.exe
+Remove-Item -Recurse -Force android/app/.cxx
+Remove-Item -Recurse -Force android/app/build
+Remove-Item -Recurse -Force android/.gradle
+cd android
+gradlew --stop
+gradlew clean
+```
+
+Then run the app again:
+
+```bash
+npx react-native run-android
+```

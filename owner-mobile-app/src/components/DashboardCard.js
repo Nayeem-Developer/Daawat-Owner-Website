@@ -71,9 +71,11 @@ export default function DashboardCard({
       </View>
 
       <View style={styles.textWrap}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={isAction ? styles.actionTitle : styles.metricTitle}>{title}</Text>
         {value ? <Text style={styles.value}>{value}</Text> : null}
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={isAction ? styles.actionSubtitle : styles.metricSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -129,17 +131,27 @@ const styles = StyleSheet.create({
   textWrap: {
     gap: spacing.xs,
   },
-  title: {
+  metricTitle: {
     color: colors.textSoft,
     fontSize: typography.small,
     fontWeight: "600",
+  },
+  actionTitle: {
+    color: colors.text,
+    fontSize: typography.cardTitle,
+    fontWeight: "700",
   },
   value: {
     color: colors.text,
     fontSize: 28,
     fontWeight: "800",
   },
-  subtitle: {
+  metricSubtitle: {
+    color: colors.muted,
+    fontSize: typography.small,
+    lineHeight: 18,
+  },
+  actionSubtitle: {
     color: colors.muted,
     fontSize: typography.small,
     lineHeight: 18,

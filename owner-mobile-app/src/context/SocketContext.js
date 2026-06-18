@@ -37,11 +37,31 @@ export const SocketProvider = ({ children }) => {
 
     socketRef.current = socket;
 
-    socket.on("connect", () => setIsConnected(true));
-    socket.on("disconnect", () => setIsConnected(false));
+    socket.on("connect", () => {
+      setIsConnected(true);
+      if (__DEV__) {
+        console.log("[socket] connected");
+      }
+    });
+
+    socket.on("disconnect", (reason) => {
+      setIsConnected(false);
+      if (__DEV__) {
+        console.log("[socket] disconnected", reason);
+      }
+    });
+
+    socket.on("connect_error", (error) => {
+      if (__DEV__) {
+        console.log("[socket] connect_error", error?.message || error);
+      }
+    });
 
     ORDER_EVENT_NAMES.forEach((eventName) => {
       socket.on(eventName, (payload) => {
+        if (__DEV__) {
+          console.log("[socket] order event", eventName, payload);
+        }
         setLastOrderEvent({
           eventName,
           payload,
@@ -51,6 +71,9 @@ export const SocketProvider = ({ children }) => {
     });
 
     socket.on("app_status_updated", (payload) => {
+      if (__DEV__) {
+        console.log("[socket] app status updated", payload);
+      }
       setLastAppStatusEvent({
         eventName: "app_status_updated",
         payload,
@@ -64,6 +87,7 @@ export const SocketProvider = ({ children }) => {
       ORDER_EVENT_NAMES.forEach((eventName) => {
         socket.off(eventName);
       });
+      socket.off("connect_error");
       socket.off("app_status_updated");
       socket.disconnect();
       setIsConnected(false);

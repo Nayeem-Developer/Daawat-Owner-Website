@@ -12,7 +12,6 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import AppIcon from "../components/AppIcon";
 import DashboardCard from "../components/DashboardCard";
 import { fetchAppStatus, fetchOrderStats, fetchOrders } from "../api/ownerApi";
-import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import {
   colors,
@@ -34,36 +33,43 @@ const quickActions = [
     tone: "primary",
   },
   {
-    title: "Menu",
+    title: "Calendar",
+    subtitle: "View orders by date",
+    screen: "Calendar",
+    icon: "calendar-month-outline",
+    tone: "info",
+  },
+  {
+    title: "Categories",
+    subtitle: "Manage categories",
+    screen: "Categories",
+    icon: "shape-outline",
+    tone: "warning",
+  },
+  {
+    title: "Menu Items",
     subtitle: "Edit food items",
     screen: "Menu Items",
     icon: "food-outline",
     tone: "gold",
   },
   {
-    title: "Categories",
-    subtitle: "Food sections",
-    screen: "Categories",
-    icon: "shape-outline",
-    tone: "warning",
-  },
-  {
     title: "Banners",
-    subtitle: "Home banners",
+    subtitle: "Manage home banners",
     screen: "Banners",
     icon: "image-multiple-outline",
     tone: "info",
   },
   {
     title: "App Status",
-    subtitle: "Open or close orders",
+    subtitle: "Open or close ordering",
     screen: "App Status",
     icon: "store-check-outline",
     tone: "success",
   },
   {
     title: "Settings",
-    subtitle: "Account settings",
+    subtitle: "Logout",
     screen: "Settings",
     icon: "cog-outline",
     tone: "neutral",
@@ -72,8 +78,7 @@ const quickActions = [
 
 export default function DashboardScreen() {
   const navigation = useNavigation();
-  const { owner } = useAuth();
-  const { lastOrderEvent, lastAppStatusEvent, isConnected } = useSocket();
+  const { lastOrderEvent, lastAppStatusEvent } = useSocket();
   const [stats, setStats] = useState({});
   const [recentOrders, setRecentOrders] = useState([]);
   const [appStatus, setAppStatus] = useState({ isActive: true, message: "" });
@@ -196,6 +201,9 @@ export default function DashboardScreen() {
     [stats]
   );
 
+  const appStatusState = appStatus?.isActive ? "Active" : "Inactive";
+  const appStatusDescription = appStatus?.isActive ? "Accepting orders" : "Not accepting orders";
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -229,11 +237,14 @@ export default function DashboardScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.statusCard}>
+      <Pressable
+        style={({ pressed }) => [styles.statusCard, pressed && styles.statusCardPressed]}
+        onPress={() => navigation.navigate("App Status")}
+      >
         <View style={styles.statusTopRow}>
-          <View>
+          <View style={styles.statusTextWrap}>
             <Text style={styles.statusLabel}>App Status</Text>
-            <Text style={styles.statusMessage}>{appStatus?.message || "No status message"}</Text>
+            <Text style={styles.statusMessage}>{appStatusDescription}</Text>
           </View>
           <View
             style={[
@@ -247,18 +258,16 @@ export default function DashboardScreen() {
                 { color: appStatus?.isActive ? colors.success : colors.danger },
               ]}
             >
-              {appStatus?.isActive ? "Active" : "Inactive"}
+              {appStatusState}
             </Text>
           </View>
         </View>
 
-        <View style={styles.socketRow}>
-          <View style={[styles.socketDot, { backgroundColor: isConnected ? colors.success : colors.warning }]} />
-          <Text style={styles.socketText}>
-            {isConnected ? "Live connected" : "Socket disconnected"}
-          </Text>
+        <View style={styles.statusFooterRow}>
+          <Text style={styles.statusHint}>Tap to manage ordering availability</Text>
+          <AppIcon name="chevron-right" size={18} color={colors.muted} />
         </View>
-      </View>
+      </Pressable>
 
       {error ? (
         <View style={styles.errorCard}>
@@ -402,11 +411,18 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     ...shadow,
   },
+  statusCardPressed: {
+    opacity: 0.94,
+  },
   statusTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     gap: spacing.md,
+  },
+  statusTextWrap: {
+    flex: 1,
+    gap: spacing.xs,
   },
   statusLabel: {
     color: colors.text,
@@ -414,9 +430,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   statusMessage: {
-    color: colors.muted,
-    fontSize: typography.small,
-    marginTop: 4,
+    color: colors.textSoft,
+    fontSize: typography.body,
+    fontWeight: "600",
   },
   statusPill: {
     borderWidth: 1,
@@ -436,18 +452,14 @@ const styles = StyleSheet.create({
     fontSize: typography.tiny,
     fontWeight: "700",
   },
-  socketRow: {
+  statusFooterRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    justifyContent: "space-between",
+    gap: spacing.md,
   },
-  socketDot: {
-    width: 10,
-    height: 10,
-    borderRadius: radius.pill,
-  },
-  socketText: {
-    color: colors.textSoft,
+  statusHint: {
+    color: colors.muted,
     fontSize: typography.small,
     fontWeight: "600",
   },

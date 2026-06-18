@@ -21,10 +21,9 @@ import {
   spacing,
   typography,
 } from "../theme/theme";
-import { formatDateTime } from "../utils/formatters";
 
 export default function AppStatusScreen() {
-  const { lastAppStatusEvent, isConnected } = useSocket();
+  const { lastAppStatusEvent } = useSocket();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,6 +77,8 @@ export default function AppStatusScreen() {
     );
   }
 
+  const isActive = status?.isActive !== false;
+
   return (
     <ScrollView
       style={styles.screen}
@@ -115,22 +116,13 @@ export default function AppStatusScreen() {
 
         <View style={styles.statusInfoCard}>
           <Text style={styles.statusLabel}>Current State</Text>
-          <Text
-            style={[
-              styles.statusValue,
-              { color: status?.isActive ? colors.success : colors.danger },
-            ]}
-          >
-            {status?.isActive ? "Accepting orders" : "Orders paused"}
+          <Text style={[styles.statusValue, { color: isActive ? colors.success : colors.danger }]}>
+            {isActive ? "Active" : "Inactive"}
           </Text>
-          <Text style={styles.statusMessage}>{status?.message || "No message available"}</Text>
-        </View>
-
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>
-            Socket: {isConnected ? "Live connected" : "Socket disconnected"}
+          <Text style={styles.statusMessage}>
+            {isActive ? "Accepting orders" : "Not accepting orders"}
           </Text>
-          <Text style={styles.metaText}>Updated: {formatDateTime(status?.updatedAt)}</Text>
+          <Text style={styles.helperText}>Changes apply immediately for new customer orders.</Text>
         </View>
       </View>
     </ScrollView>
@@ -202,16 +194,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   statusMessage: {
+    color: colors.textSoft,
+    fontSize: typography.body,
+    fontWeight: "600",
+  },
+  helperText: {
     color: colors.muted,
     fontSize: typography.small,
     lineHeight: 19,
-  },
-  metaRow: {
-    gap: spacing.xs,
-  },
-  metaText: {
-    color: colors.textSoft,
-    fontSize: typography.small,
-    fontWeight: "600",
   },
 });

@@ -1,10 +1,6 @@
-import { useMemo } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import AppIcon from "../components/AppIcon";
-import AppButton from "../components/AppButton";
 import { useAuth } from "../context/AuthContext";
-import { useSocket } from "../context/SocketContext";
-import { API_BASE_URL } from "../config/apiConfig";
 import {
   colors,
   layout,
@@ -14,62 +10,36 @@ import {
   typography,
 } from "../theme/theme";
 
-const InfoRow = ({ icon, label, value }) => (
-  <View style={styles.infoRow}>
-    <View style={styles.infoIconWrap}>
-      <AppIcon name={icon} size={16} color={colors.primary} />
-    </View>
-    <View style={{ flex: 1, gap: 2 }}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  </View>
-);
-
 export default function SettingsScreen() {
-  const { owner, logout } = useAuth();
-  const { isConnected } = useSocket();
+  const { logout } = useAuth();
 
-  const appVersion = useMemo(() => require("../../package.json").version || "1.0.0", []);
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: () => void logout() },
+    ]);
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {(owner?.name || "Daawat Owner").slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={styles.title}>{owner?.name || "Daawat Owner"}</Text>
-          <Text style={styles.subtitle}>Owner account and environment settings</Text>
-        </View>
+      <View style={styles.headerCard}>
+        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.subtitle}>Manage your session</Text>
       </View>
 
-      <View style={styles.panel}>
-        <InfoRow icon="email-outline" label="Email" value={owner?.email || "Not available"} />
-        <InfoRow
-          icon="store-check-outline"
-          label="Socket"
-          value={isConnected ? "Connected" : "Disconnected"}
-        />
-        <InfoRow icon="cellphone" label="App Version" value={appVersion} />
-        {__DEV__ ? (
-          <InfoRow icon="cloud-outline" label="Backend URL" value={API_BASE_URL} />
-        ) : null}
-      </View>
-
-      <AppButton
-        label="Logout"
-        variant="danger"
-        leftIcon="logout"
-        onPress={() =>
-          Alert.alert("Logout", "Do you want to logout from the owner app?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Logout", style: "destructive", onPress: () => void logout() },
-          ])
-        }
-      />
+      <Pressable
+        style={({ pressed }) => [styles.logoutCard, pressed && styles.logoutCardPressed]}
+        onPress={handleLogout}
+      >
+        <View style={styles.logoutIconWrap}>
+          <AppIcon name="logout" size={22} color={colors.danger} />
+        </View>
+        <View style={styles.logoutTextWrap}>
+          <Text style={styles.logoutTitle}>Logout</Text>
+          <Text style={styles.logoutSubtitle}>Sign out of the owner app</Text>
+        </View>
+        <AppIcon name="chevron-right" size={18} color={colors.muted} />
+      </Pressable>
     </ScrollView>
   );
 }
@@ -84,71 +54,57 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomInset + spacing.xxl,
     gap: spacing.lg,
   },
-  profileCard: {
+  headerCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.xl,
-    gap: spacing.md,
-    alignItems: "center",
+    gap: spacing.xs,
     ...shadow,
-  },
-  avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: radius.xxl,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primarySoft,
-  },
-  avatarText: {
-    color: colors.primary,
-    fontSize: 28,
-    fontWeight: "800",
   },
   title: {
     color: colors.text,
     fontSize: typography.title,
     fontWeight: "800",
-    textAlign: "center",
   },
   subtitle: {
     color: colors.muted,
     fontSize: typography.body,
-    textAlign: "center",
   },
-  panel: {
+  logoutCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
     ...shadow,
   },
-  infoRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-    alignItems: "center",
+  logoutCardPressed: {
+    opacity: 0.94,
   },
-  infoIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
+  logoutIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.lg,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.dangerSoft,
   },
-  infoLabel: {
-    color: colors.muted,
-    fontSize: typography.tiny,
-    fontWeight: "700",
-    textTransform: "uppercase",
+  logoutTextWrap: {
+    flex: 1,
+    gap: spacing.xs,
   },
-  infoValue: {
+  logoutTitle: {
     color: colors.text,
+    fontSize: typography.cardTitle,
+    fontWeight: "700",
+  },
+  logoutSubtitle: {
+    color: colors.muted,
     fontSize: typography.small,
-    fontWeight: "600",
   },
 });

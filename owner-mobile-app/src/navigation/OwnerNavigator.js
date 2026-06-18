@@ -5,6 +5,7 @@ import AppIcon from "../components/AppIcon";
 import LoginScreen from "../screens/LoginScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import OrdersScreen from "../screens/OrdersScreen";
+import CalendarScreen from "../screens/CalendarScreen";
 import CategoriesScreen from "../screens/CategoriesScreen";
 import MenuItemsScreen from "../screens/MenuItemsScreen";
 import BannersScreen from "../screens/BannersScreen";
@@ -73,6 +74,11 @@ export default function OwnerNavigator() {
               options={screenOptions}
             />
             <Stack.Screen name="Orders" component={OrdersScreen} options={screenOptions} />
+            <Stack.Screen
+              name="Calendar"
+              component={CalendarScreen}
+              options={screenOptions}
+            />
             <Stack.Screen
               name="Categories"
               component={CategoriesScreen}

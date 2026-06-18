@@ -12,13 +12,15 @@ import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import AppIcon from "../components/AppIcon";
 import DashboardCard from "../components/DashboardCard";
+import RevenueCard from "../components/RevenueCard";
 import { fetchAppStatus, fetchOrderStats, fetchOrders } from "../api/ownerApi";
+import { useAuth } from "../context/AuthContext";
 import { useOrderAlert } from "../context/OrderAlertContext";
 import { useSocket } from "../context/SocketContext";
+import useResponsiveScreen from "../hooks/useResponsiveScreen";
 import {
   colors,
   getStatusPalette,
-  layout,
   radius,
   shadow,
   spacing,
@@ -150,12 +152,22 @@ const getDashboardStats = (orders = []) =>
 
 export default function DashboardScreen() {
   const navigation = useNavigation();
+  const { owner, verifyOwnerPassword } = useAuth();
   const { lastOrderEvent, lastAppStatusEvent } = useSocket();
   const { refreshSignal } = useOrderAlert();
+  const {
+    bottomPadding,
+    horizontalPadding,
+    maxContentWidth,
+    stackHeaderActions,
+    summaryColumns,
+    topPadding,
+  } = useResponsiveScreen({ includeTopInset: true });
   const [overallStats, setOverallStats] = useState({});
   const [orders, setOrders] = useState([]);
   const [appStatus, setAppStatus] = useState({ isActive: true, message: "" });
   const [selectedDate, setSelectedDate] = useState(null);
+  const [isRevenueVisible, setIsRevenueVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -228,6 +240,7 @@ export default function DashboardScreen() {
       return;
     }
 
+    setIsRevenueVisible(false);
     void loadDashboard();
   }, [loadDashboard, refreshSignal]);
 
@@ -304,14 +317,16 @@ export default function DashboardScreen() {
         icon: "close-circle-outline",
         tone: "danger",
       },
-      {
-        title: "Revenue",
-        value: formatCurrency(displayStats?.totalRevenue ?? 0),
-        icon: "cash-multiple",
-        tone: "gold",
-      },
     ],
     [displayStats]
+  );
+
+  const metricCardContainerStyle = useMemo(
+    () => ({
+      flexBasis: summaryColumns === 1 ? "100%" : "48%",
+      maxWidth: summaryColumns === 1 ? "100%" : "48%",
+    }),
+    [summaryColumns]
   );
 
   const handleOpenDatePicker = () => {
@@ -342,7 +357,15 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: topPadding,
+          paddingHorizontal: horizontalPadding,
+          paddingBottom: bottomPadding,
+          maxWidth: maxContentWidth,
+        },
+      ]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -354,7 +377,7 @@ export default function DashboardScreen() {
         />
       }
     >
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, stackHeaderActions && styles.headerRowStacked]}>
         <View style={{ flex: 1, gap: spacing.xs }}>
           <Text style={styles.headerTitle}>Daawat Owner</Text>
           <Text style={styles.headerSubtitle}>Manage restaurant operations</Text>
@@ -435,8 +458,18 @@ export default function DashboardScreen() {
               value={card.value}
               icon={card.icon}
               tone={card.tone}
+              containerStyle={metricCardContainerStyle}
             />
           ))}
+          <RevenueCard
+            revenue={formatCurrency(displayStats?.totalRevenue ?? 0)}
+            ownerEmail={owner?.email || ""}
+            verifyPassword={verifyOwnerPassword}
+            visible={isRevenueVisible}
+            onShow={() => setIsRevenueVisible(true)}
+            onHide={() => setIsRevenueVisible(false)}
+            containerStyle={metricCardContainerStyle}
+          />
         </View>
       </View>
 
@@ -505,7 +538,12 @@ export default function DashboardScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.orderBottomRow}>
+                  <View
+                    style={[
+                      styles.orderBottomRow,
+                      stackHeaderActions && styles.orderBottomRowStacked,
+                    ]}
+                  >
                     <Text style={styles.orderMeta}>{formatCurrency(order?.total ?? 0)}</Text>
                     <Text style={styles.orderMeta}>{formatDateTime(getOrderDateValue(order))}</Text>
                   </View>
@@ -531,14 +569,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: layout.screenPadding,
-    paddingBottom: layout.bottomInset + spacing.xxl,
-    gap: layout.sectionGap,
+    width: "100%",
+    alignSelf: "center",
+    gap: spacing.lg,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+  },
+  headerRowStacked: {
+    flexDirection: "column",
+    alignItems: "flex-start",
   },
   headerTitle: {
     color: colors.text,
@@ -688,6 +730,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,
+    alignItems: "stretch",
   },
   actionsGrid: {
     gap: spacing.md,
@@ -732,6 +775,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: spacing.md,
+  },
+  orderBottomRowStacked: {
+    flexDirection: "column",
+    alignItems: "flex-start",
   },
   orderMeta: {
     color: colors.muted,

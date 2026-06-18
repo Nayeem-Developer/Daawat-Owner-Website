@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import AppIcon from "./AppIcon";
 import { colors, radius, spacing, typography } from "../theme/theme";
 
@@ -18,7 +18,9 @@ export default function AppInput({
   helperText = "",
   style,
 }) {
+  const { width } = useWindowDimensions();
   const hasAction = Boolean(rightIcon || rightText);
+  const isCompact = width < 380;
 
   return (
     <View style={styles.wrapper}>
@@ -38,6 +40,7 @@ export default function AppInput({
             styles.input,
             multiline && styles.multiline,
             hasAction && styles.inputWithAction,
+            isCompact && styles.compactInput,
             style,
           ]}
         />
@@ -91,6 +94,10 @@ const styles = StyleSheet.create({
   },
   inputWithAction: {
     paddingRight: spacing.sm,
+  },
+  compactInput: {
+    minHeight: 46,
+    fontSize: typography.small,
   },
   multiline: {
     minHeight: 110,

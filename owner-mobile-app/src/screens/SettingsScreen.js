@@ -1,9 +1,9 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import AppIcon from "../components/AppIcon";
 import { useAuth } from "../context/AuthContext";
+import useResponsiveScreen from "../hooks/useResponsiveScreen";
 import {
   colors,
-  layout,
   radius,
   shadow,
   spacing,
@@ -12,6 +12,7 @@ import {
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
+  const { bottomPadding, horizontalPadding, maxContentWidth, topPadding } = useResponsiveScreen();
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -21,7 +22,18 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: topPadding,
+          paddingHorizontal: horizontalPadding,
+          paddingBottom: bottomPadding,
+          maxWidth: maxContentWidth,
+        },
+      ]}
+    >
       <View style={styles.headerCard}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>Manage your session</Text>
@@ -50,8 +62,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: layout.screenPadding,
-    paddingBottom: layout.bottomInset + spacing.xxl,
+    width: "100%",
+    alignSelf: "center",
     gap: spacing.lg,
   },
   headerCard: {

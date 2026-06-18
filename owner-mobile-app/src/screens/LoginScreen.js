@@ -12,9 +12,9 @@ import AppIcon from "../components/AppIcon";
 import AppButton from "../components/AppButton";
 import AppInput from "../components/AppInput";
 import { useAuth } from "../context/AuthContext";
+import useResponsiveScreen from "../hooks/useResponsiveScreen";
 import {
   colors,
-  layout,
   radius,
   shadowStrong,
   spacing,
@@ -25,6 +25,9 @@ const logo = require("../../assets/branding/daawat-logo.png");
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { bottomPadding, horizontalPadding, topPadding, maxContentWidth } = useResponsiveScreen({
+    includeTopInset: true,
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -64,7 +67,15 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: topPadding,
+              paddingHorizontal: horizontalPadding,
+              paddingBottom: bottomPadding,
+              maxWidth: maxContentWidth,
+            },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -131,8 +142,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: layout.screenPadding,
-    paddingBottom: layout.bottomInset,
+    width: "100%",
+    alignSelf: "center",
     gap: spacing.xl,
   },
   brandBlock: {

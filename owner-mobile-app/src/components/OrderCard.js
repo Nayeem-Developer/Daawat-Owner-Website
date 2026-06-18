@@ -1,4 +1,4 @@
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import AppIcon from "./AppIcon";
 import AppButton from "./AppButton";
 import {
@@ -74,13 +74,15 @@ const MetaChip = ({ icon, label }) => (
 );
 
 export default function OrderCard({ order, onStatusPress, pendingStatus = "" }) {
+  const { width } = useWindowDimensions();
   const status = order?.status || order?.orderStatus || "Placed";
   const statusPalette = getStatusPalette(status);
   const actions = getActionsForStatus(status);
+  const isCompact = width < 390;
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
+      <View style={[styles.header, isCompact && styles.headerStacked]}>
         <View style={{ flex: 1, gap: spacing.xs }}>
           <Text style={styles.orderId}>Order #{order?.orderId || order?._id}</Text>
           <Text style={styles.time}>{formatDateTime(order?.createdAt)}</Text>
@@ -99,12 +101,12 @@ export default function OrderCard({ order, onStatusPress, pendingStatus = "" }) 
         </View>
       </View>
 
-      <View style={styles.summaryRow}>
+      <View style={[styles.summaryRow, isCompact && styles.summaryRowStacked]}>
         <View style={{ flex: 1, gap: spacing.xs }}>
           <Text style={styles.customerName}>{order?.customerName || "Customer"}</Text>
           <Text style={styles.customerMeta}>{order?.phone || "Phone not available"}</Text>
         </View>
-        <View style={styles.totalBlock}>
+        <View style={[styles.totalBlock, isCompact && styles.totalBlockCompact]}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>{formatCurrency(order?.total || 0)}</Text>
         </View>
@@ -155,7 +157,7 @@ export default function OrderCard({ order, onStatusPress, pendingStatus = "" }) 
       ) : null}
 
       {actions.length > 0 ? (
-        <View style={styles.actions}>
+        <View style={[styles.actions, isCompact && styles.actionsStacked]}>
           {actions.map((action) => (
             <AppButton
               key={action.status}
@@ -185,6 +187,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     ...shadow,
+  },
+  headerStacked: {
+    flexDirection: "column",
   },
   header: {
     flexDirection: "row",
@@ -219,6 +224,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     alignItems: "center",
   },
+  summaryRowStacked: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+  },
   customerName: {
     color: colors.text,
     fontSize: typography.body,
@@ -231,6 +240,9 @@ const styles = StyleSheet.create({
   totalBlock: {
     alignItems: "flex-end",
     gap: 2,
+  },
+  totalBlockCompact: {
+    alignItems: "flex-start",
   },
   totalLabel: {
     color: colors.muted,
@@ -318,7 +330,11 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  actionsStacked: {
+    flexDirection: "column",
+  },
   actionButton: {
     flexGrow: 1,
+    width: "100%",
   },
 });

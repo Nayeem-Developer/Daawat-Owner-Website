@@ -48,6 +48,7 @@ export default function DashboardCard({
   tone = "neutral",
   icon = "view-dashboard-outline",
   kind = "metric",
+  containerStyle,
   style,
 }) {
   const palette = TONES[tone] || TONES.neutral;
@@ -82,19 +83,30 @@ export default function DashboardCard({
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.pressable, isAction ? styles.actionWrapper : styles.metricWrapper, pressed && styles.pressed, containerStyle]}
+      >
         {content}
       </Pressable>
     );
   }
 
-  return <View style={styles.pressable}>{content}</View>;
+  return <View style={[styles.pressable, isAction ? styles.actionWrapper : styles.metricWrapper, containerStyle]}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
   pressable: {
-    flex: 1,
-    minWidth: "47%",
+    width: "100%",
+  },
+  metricWrapper: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: "47%",
+    maxWidth: "48%",
+  },
+  actionWrapper: {
+    maxWidth: "100%",
   },
   card: {
     backgroundColor: colors.surface,
@@ -135,11 +147,13 @@ const styles = StyleSheet.create({
     color: colors.textSoft,
     fontSize: typography.small,
     fontWeight: "600",
+    flexShrink: 1,
   },
   actionTitle: {
     color: colors.text,
     fontSize: typography.cardTitle,
     fontWeight: "700",
+    flexShrink: 1,
   },
   value: {
     color: colors.text,
@@ -150,11 +164,13 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: typography.small,
     lineHeight: 18,
+    flexShrink: 1,
   },
   actionSubtitle: {
     color: colors.muted,
     fontSize: typography.small,
     lineHeight: 18,
+    flexShrink: 1,
   },
   pressed: {
     opacity: 0.92,

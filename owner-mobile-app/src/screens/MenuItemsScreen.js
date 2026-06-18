@@ -23,9 +23,9 @@ import {
   updateMenuItem,
   uploadImage,
 } from "../api/ownerApi";
+import useResponsiveScreen from "../hooks/useResponsiveScreen";
 import {
   colors,
-  layout,
   radius,
   shadowStrong,
   spacing,
@@ -61,6 +61,14 @@ const normalizeItem = (item) => ({
 });
 
 export default function MenuItemsScreen() {
+  const {
+    bottomPadding,
+    horizontalPadding,
+    maxContentWidth,
+    stackHeaderActions,
+    stackModalActions,
+    topPadding,
+  } = useResponsiveScreen();
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -250,7 +258,15 @@ export default function MenuItemsScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: topPadding,
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: bottomPadding,
+            maxWidth: maxContentWidth,
+          },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -262,7 +278,7 @@ export default function MenuItemsScreen() {
           />
         }
       >
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, stackHeaderActions && styles.headerRowStacked]}>
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text style={styles.title}>Menu Items</Text>
             <Text style={styles.subtitle}>
@@ -321,7 +337,12 @@ export default function MenuItemsScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalBackdrop}>
-          <ScrollView contentContainerStyle={styles.modalScroll}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.modalScroll,
+              { paddingHorizontal: horizontalPadding, paddingBottom: bottomPadding },
+            ]}
+          >
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>
                 {editingItem ? "Edit Menu Item" : "Add Menu Item"}
@@ -407,20 +428,25 @@ export default function MenuItemsScreen() {
                 <Text style={styles.previewText}>Current image available</Text>
               ) : null}
 
-              <View style={styles.modalActions}>
+              <View
+                style={[
+                  styles.modalActions,
+                  stackModalActions && styles.modalActionsStacked,
+                ]}
+              >
                 <AppButton
                   label="Cancel"
                   variant="ghost"
                   onPress={() => setModalVisible(false)}
                   fullWidth={false}
-                  style={styles.modalAction}
+                  style={stackModalActions ? styles.modalActionStacked : styles.modalAction}
                 />
                 <AppButton
                   label={saving ? "Saving..." : "Save"}
                   onPress={handleSave}
                   loading={saving}
                   fullWidth={false}
-                  style={styles.modalAction}
+                  style={stackModalActions ? styles.modalActionStacked : styles.modalAction}
                 />
               </View>
             </View>
@@ -443,14 +469,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: layout.screenPadding,
-    paddingBottom: layout.bottomInset + spacing.xxl,
+    width: "100%",
+    alignSelf: "center",
     gap: spacing.lg,
   },
   headerRow: {
     flexDirection: "row",
     gap: spacing.md,
     alignItems: "center",
+  },
+  headerRowStacked: {
+    flexDirection: "column",
+    alignItems: "flex-start",
   },
   title: {
     color: colors.text,
@@ -490,7 +520,7 @@ const styles = StyleSheet.create({
   modalScroll: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: layout.screenPadding,
+    paddingTop: spacing.xxl,
   },
   modalCard: {
     backgroundColor: colors.surface,
@@ -530,7 +560,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
+  modalActionsStacked: {
+    flexDirection: "column",
+  },
   modalAction: {
     flex: 1,
+  },
+  modalActionStacked: {
+    width: "100%",
   },
 });

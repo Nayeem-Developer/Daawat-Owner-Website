@@ -13,7 +13,11 @@ export default function App() {
         <AuthProvider>
           <SocketProvider>
             <OrderAlertProvider>
-              <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+              <StatusBar
+                barStyle="dark-content"
+                backgroundColor={colors.background}
+                translucent={false}
+              />
               <OwnerNavigator />
             </OrderAlertProvider>
           </SocketProvider>

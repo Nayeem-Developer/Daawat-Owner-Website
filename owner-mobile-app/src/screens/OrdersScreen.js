@@ -16,7 +16,8 @@ import OrderCard from "../components/OrderCard";
 import { fetchOrders, updateOrderStatus } from "../api/ownerApi";
 import { useOrderAlert } from "../context/OrderAlertContext";
 import { useSocket } from "../context/SocketContext";
-import { colors, layout, spacing, typography } from "../theme/theme";
+import useResponsiveScreen from "../hooks/useResponsiveScreen";
+import { colors, spacing, typography } from "../theme/theme";
 
 const FILTERS = [
   "All",
@@ -60,6 +61,7 @@ const matchesFilter = (order, activeFilter) => {
 export default function OrdersScreen() {
   const { lastOrderEvent } = useSocket();
   const { refreshSignal, requestOrderAlertRefresh } = useOrderAlert();
+  const { bottomPadding, horizontalPadding, maxContentWidth, topPadding } = useResponsiveScreen();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -168,7 +170,17 @@ export default function OrdersScreen() {
           />
         )}
         ListHeaderComponent={
-          <View style={styles.header}>
+          <View
+            style={[
+              styles.header,
+              {
+                paddingTop: topPadding,
+                maxWidth: maxContentWidth,
+                alignSelf: "center",
+                width: "100%",
+              },
+            ]}
+          >
             <Text style={styles.title}>Orders</Text>
             <Text style={styles.subtitle}>Track every order and update statuses quickly.</Text>
             <AppInput
@@ -195,7 +207,6 @@ export default function OrdersScreen() {
             <Text style={styles.resultText}>{filteredOrders.length} orders</Text>
           </View>
         }
-        contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.emptyText}>No orders found.</Text>}
         refreshControl={
           <RefreshControl
@@ -207,6 +218,16 @@ export default function OrdersScreen() {
             tintColor={colors.primary}
           />
         }
+        contentContainerStyle={[
+          styles.listContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: bottomPadding,
+            maxWidth: maxContentWidth,
+            alignSelf: "center",
+            width: "100%",
+          },
+        ]}
       />
     </View>
   );
@@ -246,8 +267,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   listContent: {
-    padding: layout.screenPadding,
-    paddingBottom: layout.bottomInset + spacing.xxl,
     gap: spacing.md,
   },
   emptyText: {

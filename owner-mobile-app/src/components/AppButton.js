@@ -110,6 +110,7 @@ export default function AppButton({
           minHeight: metrics.minHeight,
           paddingHorizontal: metrics.paddingHorizontal,
         },
+        !fullWidth && styles.autoWidth,
         variant === "primary" && styles.primaryShadow,
         pressed && !disabled && !loading && styles.pressed,
         (disabled || loading) && styles.disabled,
@@ -160,9 +161,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
+    flexWrap: "wrap",
   },
   label: {
     fontWeight: "700",
+    flexShrink: 1,
+    textAlign: "center",
+  },
+  autoWidth: {
+    alignSelf: "flex-start",
+    maxWidth: "100%",
   },
   pressed: {
     opacity: 0.92,

@@ -13,9 +13,9 @@ import { useFocusEffect } from "@react-navigation/native";
 import AppIcon from "../components/AppIcon";
 import { fetchAppStatus, updateAppStatus } from "../api/ownerApi";
 import { useSocket } from "../context/SocketContext";
+import useResponsiveScreen from "../hooks/useResponsiveScreen";
 import {
   colors,
-  layout,
   radius,
   shadow,
   spacing,
@@ -24,6 +24,7 @@ import {
 
 export default function AppStatusScreen() {
   const { lastAppStatusEvent } = useSocket();
+  const { bottomPadding, horizontalPadding, maxContentWidth, topPadding } = useResponsiveScreen();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,7 +83,15 @@ export default function AppStatusScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: topPadding,
+          paddingHorizontal: horizontalPadding,
+          paddingBottom: bottomPadding,
+          maxWidth: maxContentWidth,
+        },
+      ]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -141,8 +150,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: layout.screenPadding,
-    paddingBottom: layout.bottomInset + spacing.xxl,
+    width: "100%",
+    alignSelf: "center",
   },
   heroCard: {
     backgroundColor: colors.surface,

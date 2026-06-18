@@ -125,6 +125,19 @@ export const AuthProvider = ({ children }) => {
     return result;
   }, []);
 
+  const verifyOwnerPassword = useCallback(
+    async (password) => {
+      const email = String(owner?.email || "").trim();
+
+      if (!email) {
+        throw new Error("Owner email not available.");
+      }
+
+      return loginOwner({ email, password });
+    },
+    [owner]
+  );
+
   const value = useMemo(
     () => ({
       owner,
@@ -133,9 +146,10 @@ export const AuthProvider = ({ children }) => {
       isLoading,
       login,
       logout,
+      verifyOwnerPassword,
       setOwner,
     }),
-    [isAuthenticated, isLoading, login, logout, owner, token]
+    [isAuthenticated, isLoading, login, logout, owner, token, verifyOwnerPassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -102,6 +102,17 @@ export const fetchOrderStats = async () => {
   );
 };
 
+export const clearAllOrders = async ({ password, confirmText }) => {
+  const response = await apiClient.delete(API_ROUTES.ownerClearAllOrders, {
+    data: {
+      password,
+      confirmText,
+    },
+  });
+
+  return response?.data;
+};
+
 export const updateOrderStatus = async (orderId, orderStatus) => {
   const response = await apiClient.patch(
     `${API_ROUTES.ownerOrders}/${orderId}/status`,

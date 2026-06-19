@@ -3,10 +3,16 @@ import { useOutletContext } from "react-router-dom";
 import StatCard from "../components/StatCard";
 import api, { getErrorMessage } from "../services/api";
 import {
+  computeOrderStats,
   formatCurrency,
   formatDateTime,
+  getDisplayOrderStatus,
+  getOrderActionButtons,
   getOrderIdentifier,
   getOrderItemName,
+  isCancelledOrder,
+  isExpiredOrder,
+  matchesOrderFilter,
 } from "../services/formatters";
 
 const DASHBOARD_SEARCH_DEBOUNCE_MS = 300;
@@ -15,6 +21,7 @@ const DELETE_ALL_ORDERS_CONFIRM_TEXT = "DELETE ALL ORDERS";
 
 const DASHBOARD_TABS = [
   { key: "total", title: "Total Orders", heading: "All Orders", status: "" },
+  { key: "pending", title: "Pending Orders", heading: "Pending Orders", status: "pending" },
   { key: "accepted", title: "Accepted Orders", heading: "Accepted Orders", status: "Accepted" },
   {
     key: "out_for_delivery",
@@ -22,9 +29,31 @@ const DASHBOARD_TABS = [
     heading: "Out for Delivery Orders",
     status: "Out for delivery",
   },
+  { key: "delivered", title: "Delivered Orders", heading: "Delivered Orders", status: "Delivered" },
   { key: "cancelled", title: "Cancelled Orders", heading: "Cancelled Orders", status: "Cancelled" },
-  { key: "revenue", title: "Total Revenue", heading: "Revenue Orders", status: "" },
 ];
+
+const getActionSuccessMessage = (order, nextStatus) => {
+  const orderCode = order?.orderId || getOrderIdentifier(order);
+
+  if (nextStatus === "Accepted") {
+    return `Order #${orderCode} accepted successfully.`;
+  }
+
+  if (nextStatus === "Cancelled") {
+    return `Order #${orderCode} rejected successfully.`;
+  }
+
+  if (nextStatus === "Out for delivery") {
+    return `Order #${orderCode} moved to Out for Delivery.`;
+  }
+
+  if (nextStatus === "Delivered") {
+    return `Order #${orderCode} marked as delivered.`;
+  }
+
+  return `Order #${orderCode} updated successfully.`;
+};
 
 const getLocalDateKey = (dateValue) => {
   const date = new Date(dateValue);
@@ -110,8 +139,10 @@ export default function Dashboard() {
   );
   const [selectedOrderDate, setSelectedOrderDate] = useState("");
   const [selectedOrderForModal, setSelectedOrderForModal] = useState(null);
-  const [statusActionLoading, setStatusActionLoading] = useState(false);
-  const [outForDeliveryLoading, setOutForDeliveryLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState({
+    orderId: "",
+    status: "",
+  });
   const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
   const [deleteAllPassword, setDeleteAllPassword] = useState("");
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState("");
@@ -141,7 +172,7 @@ export default function Dashboard() {
 
   const dateFilteredOrders = useMemo(() => {
     const withoutExpired = orders.filter(
-      (order) => (order?.status || order?.orderStatus) !== "Expired"
+      (order) => !isExpiredOrder(order)
     );
     if (!selectedOrderDate) {
       return withoutExpired;
@@ -151,54 +182,19 @@ export default function Dashboard() {
     );
   }, [orders, selectedOrderDate]);
 
-  const dateScopedStats = useMemo(() => {
-    return dateFilteredOrders.reduce(
-      (acc, order) => {
-        const status = order?.status || order?.orderStatus;
-        acc.totalOrders += 1;
+  const dateScopedStats = useMemo(
+    () => computeOrderStats(dateFilteredOrders),
+    [dateFilteredOrders]
+  );
 
-        if (status === "Accepted") {
-          acc.acceptedOrders += 1;
-        }
-        if (status === "Out for delivery") {
-          acc.outForDeliveryOrders += 1;
-        }
-        if (status === "Cancelled") {
-          acc.cancelledOrders += 1;
-        }
-        if (status === "Out for delivery" || status === "Delivered") {
-          acc.totalRevenue += Number(order?.total || 0);
-        }
-        return acc;
-      },
-      {
-        totalOrders: 0,
-        acceptedOrders: 0,
-        outForDeliveryOrders: 0,
-        cancelledOrders: 0,
-        totalRevenue: 0,
-      }
-    );
-  }, [dateFilteredOrders]);
+  const localStats = useMemo(() => computeOrderStats(orders), [orders]);
 
   const tabFilteredOrders = useMemo(() => {
-    if (activeTab === "accepted") {
-      return dateFilteredOrders.filter((order) => order?.status === "Accepted");
+    if (activeTab === "total") {
+      return dateFilteredOrders;
     }
-    if (activeTab === "out_for_delivery") {
-      return dateFilteredOrders.filter(
-        (order) => order?.status === "Out for delivery"
-      );
-    }
-    if (activeTab === "cancelled") {
-      return dateFilteredOrders.filter((order) => order?.status === "Cancelled");
-    }
-    if (activeTab === "revenue") {
-      return dateFilteredOrders.filter((order) =>
-        ["Out for delivery", "Delivered"].includes(order?.status)
-      );
-    }
-    return dateFilteredOrders;
+
+    return dateFilteredOrders.filter((order) => matchesOrderFilter(order, activeTab));
   }, [activeTab, dateFilteredOrders]);
 
   const debouncedSearch = useMemo(
@@ -210,87 +206,43 @@ export default function Dashboard() {
     [debouncedSearch, tabFilteredOrders]
   );
 
-  const handleMarkOutForDelivery = async () => {
-    if (!selectedOrderForModal) {
+  const handleOrderStatusAction = async (
+    order,
+    nextStatus,
+    { closeModalOnSuccess = false } = {}
+  ) => {
+    const orderId = getOrderIdentifier(order);
+
+    if (!orderId || pendingAction.orderId) {
       return;
     }
 
     try {
-      setOutForDeliveryLoading(true);
-      await updateOrderStatus(selectedOrderForModal, "Out for delivery", {
-        successMessage: `Order #${
-          selectedOrderForModal.orderId || getOrderIdentifier(selectedOrderForModal)
-        } moved to Out for delivery.`,
+      setPendingAction({ orderId, status: nextStatus });
+      await updateOrderStatus(order, nextStatus, {
+        successMessage: getActionSuccessMessage(order, nextStatus),
       });
-      setSelectedOrderForModal(null);
+
+      if (closeModalOnSuccess) {
+        setSelectedOrderForModal(null);
+      }
+
+      await refreshOrders();
     } catch (error) {
       if (isOrderExpiredError(error)) {
-        setSelectedOrderForModal(null);
+        if (closeModalOnSuccess) {
+          setSelectedOrderForModal(null);
+        }
         await refreshOrders();
       }
+
       addToast({
         title: "Update failed",
-        message: getErrorMessage(error, "Unable to mark out for delivery"),
+        message: getErrorMessage(error, "Unable to update order status"),
         type: "error",
       });
     } finally {
-      setOutForDeliveryLoading(false);
-    }
-  };
-
-  const handleAcceptPlacedOrder = async () => {
-    if (!selectedOrderForModal) {
-      return;
-    }
-
-    try {
-      setStatusActionLoading(true);
-      await updateOrderStatus(selectedOrderForModal, "Accepted", {
-        successMessage: `Order #${
-          selectedOrderForModal.orderId || getOrderIdentifier(selectedOrderForModal)
-        } accepted successfully.`,
-      });
-      setSelectedOrderForModal(null);
-    } catch (error) {
-      if (isOrderExpiredError(error)) {
-        setSelectedOrderForModal(null);
-        await refreshOrders();
-      }
-      addToast({
-        title: "Update failed",
-        message: getErrorMessage(error, "Unable to accept order"),
-        type: "error",
-      });
-    } finally {
-      setStatusActionLoading(false);
-    }
-  };
-
-  const handleRejectPlacedOrder = async () => {
-    if (!selectedOrderForModal) {
-      return;
-    }
-
-    try {
-      setStatusActionLoading(true);
-      await updateOrderStatus(selectedOrderForModal, "Cancelled", {
-        successMessage: `Order #${
-          selectedOrderForModal.orderId || getOrderIdentifier(selectedOrderForModal)
-        } rejected successfully.`,
-      });
-      setSelectedOrderForModal(null);
-    } catch (error) {
-      if (isOrderExpiredError(error)) {
-        setSelectedOrderForModal(null);
-        await refreshOrders();
-      }
-      addToast({
-        title: "Update failed",
-        message: getErrorMessage(error, "Unable to reject order"),
-        type: "error",
-      });
-    } finally {
-      setStatusActionLoading(false);
+      setPendingAction({ orderId: "", status: "" });
     }
   };
 
@@ -313,7 +265,7 @@ export default function Dashboard() {
     }
 
     const latestStatus = latestOrder.status || latestOrder.orderStatus;
-    if (latestStatus === "Expired") {
+    if (isExpiredOrder(latestStatus)) {
       setSelectedOrderForModal(null);
       return;
     }
@@ -335,14 +287,36 @@ export default function Dashboard() {
   };
 
   const stats = orderStats || {};
+  const getNumericStat = (...values) => {
+    const nextValue = values.find(
+      (value) => typeof value === "number" && Number.isFinite(value)
+    );
+
+    return nextValue ?? 0;
+  };
   const effectiveStats = selectedOrderDate
     ? dateScopedStats
     : {
-        totalOrders: stats.totalOrders || 0,
-        acceptedOrders: stats.acceptedOrders || 0,
-        outForDeliveryOrders: stats.outForDeliveryOrders || 0,
-        cancelledOrders: stats.cancelledOrders || 0,
-        totalRevenue: stats.totalRevenue || 0,
+        totalOrders: getNumericStat(stats.totalOrders, localStats.totalOrders),
+        pendingOrders: getNumericStat(
+          stats.pendingOrders,
+          stats.placedOrders,
+          localStats.pendingOrders
+        ),
+        acceptedOrders: getNumericStat(stats.acceptedOrders, localStats.acceptedOrders),
+        outForDeliveryOrders: getNumericStat(
+          stats.outForDeliveryOrders,
+          localStats.outForDeliveryOrders
+        ),
+        deliveredOrders: getNumericStat(
+          stats.deliveredOrders,
+          localStats.deliveredOrders
+        ),
+        cancelledOrders: getNumericStat(
+          stats.cancelledOrders,
+          localStats.cancelledOrders
+        ),
+        totalRevenue: getNumericStat(stats.totalRevenue, localStats.totalRevenue),
       };
 
   const deleteConfirmationMatched =
@@ -472,6 +446,12 @@ export default function Dashboard() {
           onClick={() => setActiveTab("total")}
         />
         <StatCard
+          title="Pending Orders"
+          value={orderStatsLoading && !selectedOrderDate ? "..." : effectiveStats.pendingOrders}
+          active={activeTab === "pending"}
+          onClick={() => setActiveTab("pending")}
+        />
+        <StatCard
           title="Accepted Orders"
           value={
             orderStatsLoading && !selectedOrderDate ? "..." : effectiveStats.acceptedOrders
@@ -491,6 +471,15 @@ export default function Dashboard() {
           onClick={() => setActiveTab("out_for_delivery")}
         />
         <StatCard
+          title="Delivered Orders"
+          value={
+            orderStatsLoading && !selectedOrderDate ? "..." : effectiveStats.deliveredOrders
+          }
+          tone="green"
+          active={activeTab === "delivered"}
+          onClick={() => setActiveTab("delivered")}
+        />
+        <StatCard
           title="Cancelled Orders"
           value={
             orderStatsLoading && !selectedOrderDate ? "..." : effectiveStats.cancelledOrders
@@ -506,8 +495,6 @@ export default function Dashboard() {
               : formatCurrency(effectiveStats.totalRevenue)
           }
           tone="accent"
-          active={activeTab === "revenue"}
-          onClick={() => setActiveTab("revenue")}
         />
       </div>
 
@@ -560,8 +547,11 @@ export default function Dashboard() {
           <div className="orders-grid">
             {ordersForActiveTab.map((order) => {
               const orderId = getOrderIdentifier(order);
-              const isCancelled = order?.status === "Cancelled";
+              const isCancelled = isCancelledOrder(order);
               const canOpenModal = Boolean(orderId);
+              const orderActions = getOrderActionButtons(order);
+              const actionLoadingStatus =
+                pendingAction.orderId === orderId ? pendingAction.status : "";
 
               return (
                 <article
@@ -580,7 +570,7 @@ export default function Dashboard() {
                       <h3>Order #{order?.orderId || orderId}</h3>
                       <p>{formatDateTime(order?.createdAt)}</p>
                     </div>
-                    <div className="order-status-badge">{order?.status}</div>
+                    <div className="order-status-badge">{getDisplayOrderStatus(order)}</div>
                   </div>
                   {isCancelled && (
                     <p className="cancelled-order-label">{getCancelledLabel(order)}</p>
@@ -657,6 +647,36 @@ export default function Dashboard() {
                       <p className="muted">No items found</p>
                     )}
                   </div>
+
+                  {orderActions.length > 0 ? (
+                    <div className="order-card-actions action-row">
+                      {orderActions.map((action) => {
+                        const buttonClass =
+                          action.variant === "danger"
+                            ? "btn danger"
+                            : action.variant === "success"
+                              ? "btn success"
+                              : "btn";
+
+                        return (
+                          <button
+                            key={action.key}
+                            type="button"
+                            className={buttonClass}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleOrderStatusAction(order, action.nextStatus);
+                            }}
+                            disabled={Boolean(pendingAction.orderId)}
+                          >
+                            {actionLoadingStatus === action.nextStatus
+                              ? "Please wait..."
+                              : action.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </article>
               );
             })}
@@ -737,7 +757,9 @@ export default function Dashboard() {
               <button
                 className="btn ghost"
                 onClick={() => setSelectedOrderForModal(null)}
-                disabled={outForDeliveryLoading || statusActionLoading}
+                disabled={
+                  pendingAction.orderId === getOrderIdentifier(selectedOrderForModal)
+                }
               >
                 Close
               </button>
@@ -775,7 +797,7 @@ export default function Dashboard() {
                 <span>Payment Status:</span> {selectedOrderForModal.paymentStatus}
               </p>
               <p>
-                <span>Order Status:</span> {selectedOrderForModal.status}
+                <span>Order Status:</span> {getDisplayOrderStatus(selectedOrderForModal)}
               </p>
               <p>
                 <span>Created:</span> {formatDateTime(selectedOrderForModal.createdAt)}
@@ -826,36 +848,43 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="modal-actions">
-              {(selectedOrderForModal.status || selectedOrderForModal.orderStatus) ===
-                "Placed" && (
-                <>
+            <div className="modal-actions order-modal-actions">
+              {getOrderActionButtons(selectedOrderForModal).map((action) => {
+                const isLoading =
+                  pendingAction.orderId === getOrderIdentifier(selectedOrderForModal) &&
+                  pendingAction.status === action.nextStatus;
+                const buttonClass =
+                  action.variant === "danger"
+                    ? "btn danger"
+                    : action.variant === "success"
+                      ? "btn success"
+                      : "btn";
+                const modalLabel =
+                  action.nextStatus === "Accepted"
+                    ? "Accept Order"
+                    : action.nextStatus === "Cancelled"
+                      ? "Reject Order"
+                      : action.nextStatus === "Out for delivery"
+                        ? "Mark Out for Delivery"
+                        : action.nextStatus === "Delivered"
+                          ? "Mark Delivered"
+                          : action.label;
+
+                return (
                   <button
-                    className="btn danger"
-                    onClick={() => void handleRejectPlacedOrder()}
-                    disabled={statusActionLoading}
+                    key={action.key}
+                    className={buttonClass}
+                    onClick={() =>
+                      void handleOrderStatusAction(selectedOrderForModal, action.nextStatus, {
+                        closeModalOnSuccess: true,
+                      })
+                    }
+                    disabled={Boolean(pendingAction.orderId)}
                   >
-                    {statusActionLoading ? "Please wait..." : "Reject"}
+                    {isLoading ? "Please wait..." : modalLabel}
                   </button>
-                  <button
-                    className="btn success"
-                    onClick={() => void handleAcceptPlacedOrder()}
-                    disabled={statusActionLoading}
-                  >
-                    {statusActionLoading ? "Please wait..." : "Accept"}
-                  </button>
-                </>
-              )}
-              {(selectedOrderForModal.status || selectedOrderForModal.orderStatus) ===
-                "Accepted" && (
-                <button
-                  className="btn"
-                  onClick={() => void handleMarkOutForDelivery()}
-                  disabled={outForDeliveryLoading}
-                >
-                  {outForDeliveryLoading ? "Please wait..." : "Out for Delivery"}
-                </button>
-              )}
+                );
+              })}
             </div>
           </div>
         </div>

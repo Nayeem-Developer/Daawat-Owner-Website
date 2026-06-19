@@ -23,6 +23,178 @@ export const formatDateTime = (value) => {
   });
 };
 
+export const getOrderStatus = (orderOrStatus) => {
+  if (orderOrStatus && typeof orderOrStatus === "object") {
+    return orderOrStatus?.status || orderOrStatus?.orderStatus || "";
+  }
+
+  return orderOrStatus || "";
+};
+
+export const normalizeStatus = (status) =>
+  String(getOrderStatus(status) || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+export const isPendingOrder = (status) => {
+  const normalized = normalizeStatus(status);
+
+  return (
+    normalized === "placed" ||
+    normalized === "pending" ||
+    normalized === "pending confirmation"
+  );
+};
+
+export const isAcceptedOrder = (status) => {
+  const normalized = normalizeStatus(status);
+  return normalized === "accepted" || normalized === "confirmed";
+};
+
+export const isOutForDeliveryOrder = (status) =>
+  normalizeStatus(status) === "out for delivery";
+
+export const isDeliveredOrder = (status) => normalizeStatus(status) === "delivered";
+
+export const isCancelledOrder = (status) => {
+  const normalized = normalizeStatus(status);
+  return (
+    normalized === "cancelled" ||
+    normalized === "canceled" ||
+    normalized === "rejected"
+  );
+};
+
+export const isExpiredOrder = (status) => normalizeStatus(status) === "expired";
+
+export const matchesOrderFilter = (orderOrStatus, filterValue = "") => {
+  const normalizedFilter = normalizeStatus(filterValue);
+
+  if (!normalizedFilter || normalizedFilter === "all" || normalizedFilter === "total") {
+    return true;
+  }
+
+  if (normalizedFilter === "pending" || normalizedFilter === "pending confirmation") {
+    return isPendingOrder(orderOrStatus);
+  }
+
+  if (normalizedFilter === "accepted") {
+    return isAcceptedOrder(orderOrStatus);
+  }
+
+  if (normalizedFilter === "out for delivery") {
+    return isOutForDeliveryOrder(orderOrStatus);
+  }
+
+  if (normalizedFilter === "delivered" || normalizedFilter === "revenue") {
+    return isDeliveredOrder(orderOrStatus);
+  }
+
+  if (
+    normalizedFilter === "cancelled" ||
+    normalizedFilter === "canceled" ||
+    normalizedFilter === "rejected"
+  ) {
+    return isCancelledOrder(orderOrStatus);
+  }
+
+  return normalizeStatus(orderOrStatus) === normalizedFilter;
+};
+
+export const getDisplayOrderStatus = (orderOrStatus) => {
+  const rawStatus = getOrderStatus(orderOrStatus);
+  const normalized = normalizeStatus(rawStatus);
+
+  if (!normalized) {
+    return "Placed";
+  }
+
+  if (normalized === "pending confirmation") {
+    return "Pending Confirmation";
+  }
+
+  if (normalized === "out for delivery") {
+    return "Out for Delivery";
+  }
+
+  if (normalized === "cancelled" || normalized === "canceled") {
+    return "Cancelled";
+  }
+
+  if (normalized === "accepted" || normalized === "confirmed") {
+    return "Accepted";
+  }
+
+  if (normalized === "delivered") {
+    return "Delivered";
+  }
+
+  if (normalized === "rejected") {
+    return "Rejected";
+  }
+
+  if (normalized === "pending") {
+    return "Pending";
+  }
+
+  if (normalized === "placed") {
+    return "Placed";
+  }
+
+  if (normalized === "expired") {
+    return "Expired";
+  }
+
+  return String(rawStatus)
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+export const getOrderActionButtons = (orderOrStatus) => {
+  if (isPendingOrder(orderOrStatus)) {
+    return [
+      {
+        key: "reject",
+        label: "Reject",
+        nextStatus: "Cancelled",
+        variant: "danger",
+      },
+      {
+        key: "accept",
+        label: "Accept",
+        nextStatus: "Accepted",
+        variant: "success",
+      },
+    ];
+  }
+
+  if (isAcceptedOrder(orderOrStatus)) {
+    return [
+      {
+        key: "out_for_delivery",
+        label: "Out for Delivery",
+        nextStatus: "Out for delivery",
+        variant: "default",
+      },
+    ];
+  }
+
+  if (isOutForDeliveryOrder(orderOrStatus)) {
+    return [
+      {
+        key: "delivered",
+        label: "Delivered",
+        nextStatus: "Delivered",
+        variant: "success",
+      },
+    ];
+  }
+
+  return [];
+};
+
 export const getOrderIdentifier = (order) => {
   return order?._id || order?.id || order?.orderId || order?.order_id || "";
 };
@@ -117,6 +289,7 @@ export const getOrderItemName = (item) => {
 export const computeOrderStats = (orders = []) => {
   const stats = {
     totalOrders: orders.length,
+    pendingOrders: 0,
     placedOrders: 0,
     acceptedOrders: 0,
     preparingOrders: 0,
@@ -127,30 +300,31 @@ export const computeOrderStats = (orders = []) => {
   };
 
   for (const order of orders) {
-    const status = String(order?.status || "").toLowerCase();
+    const status = getOrderStatus(order);
 
-    if (status === "placed") {
+    if (isPendingOrder(status)) {
+      stats.pendingOrders += 1;
       stats.placedOrders += 1;
     }
 
-    if (status === "accepted") {
+    if (isAcceptedOrder(status)) {
       stats.acceptedOrders += 1;
     }
 
-    if (status === "preparing") {
+    if (normalizeStatus(status) === "preparing") {
       stats.preparingOrders += 1;
     }
 
-    if (status === "out for delivery") {
+    if (isOutForDeliveryOrder(status)) {
       stats.outForDeliveryOrders += 1;
     }
 
-    if (status === "delivered") {
+    if (isDeliveredOrder(status)) {
       stats.deliveredOrders += 1;
       stats.totalRevenue += Number(order?.total || 0);
     }
 
-    if (status === "cancelled") {
+    if (isCancelledOrder(status)) {
       stats.cancelledOrders += 1;
     }
   }

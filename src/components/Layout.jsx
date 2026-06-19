@@ -11,6 +11,8 @@ import {
   formatDateTime,
   getOrderIdentifier,
   getOrderItemName,
+  isExpiredOrder,
+  matchesOrderFilter,
   normalizeOrder,
 } from "../services/formatters";
 
@@ -23,8 +25,10 @@ const DEFAULT_ORDER_LIMIT = 100;
 
 const INITIAL_STATS = {
   totalOrders: 0,
+  pendingOrders: 0,
   acceptedOrders: 0,
   outForDeliveryOrders: 0,
+  deliveredOrders: 0,
   cancelledOrders: 0,
   totalRevenue: 0,
 };
@@ -88,7 +92,7 @@ const mergeIncomingOrder = (currentOrders, incomingOrder, limit) => {
   return dedupeOrders(updatedOrders).slice(0, maxItems);
 };
 
-const isExpiredStatus = (status) => String(status || "").trim() === "Expired";
+const isExpiredStatus = (status) => isExpiredOrder(status);
 
 const isOrderExpiredError = (error) =>
   getErrorMessage(error, "")
@@ -554,8 +558,10 @@ export default function Layout() {
         const existingIndex = previous.findIndex(
           (item) => getOrderIdentifier(item) === orderId
         );
-        const statusMatchesFilter =
-          !ordersFilters.status || normalizedUpdated.status === ordersFilters.status;
+        const statusMatchesFilter = matchesOrderFilter(
+          normalizedUpdated,
+          ordersFilters.status
+        );
 
         if (!statusMatchesFilter || isExpiredStatus(normalizedUpdated.status)) {
           return previous.filter((item) => getOrderIdentifier(item) !== orderId);
@@ -658,8 +664,7 @@ export default function Layout() {
       }
 
       const nextId = getOrderIdentifier(nextOrder);
-      const matchesStatusFilter =
-        !ordersFilters.status || nextOrder.status === ordersFilters.status;
+      const matchesStatusFilter = matchesOrderFilter(nextOrder, ordersFilters.status);
 
       if (matchesStatusFilter) {
         setOrders((prev) => mergeIncomingOrder(prev, nextOrder, ordersPagination.limit));
@@ -712,8 +717,10 @@ export default function Layout() {
         const existingIndex = previous.findIndex(
           (order) => getOrderIdentifier(order) === nextId
         );
-        const statusMatchesFilter =
-          !ordersFilters.status || cancelledOrder.status === ordersFilters.status;
+        const statusMatchesFilter = matchesOrderFilter(
+          cancelledOrder,
+          ordersFilters.status
+        );
 
         if (existingIndex === -1) {
           if (!statusMatchesFilter) {

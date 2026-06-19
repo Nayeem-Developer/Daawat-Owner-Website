@@ -1,10 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import OrderCard from "../components/OrderCard";
-import { getOrderIdentifier } from "../services/formatters";
+import {
+  getOrderIdentifier,
+  matchesOrderFilter,
+} from "../services/formatters";
 
 const ORDER_LIMIT = 100;
 const SEARCH_DEBOUNCE_MS = 300;
+const ORDER_STATUS_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "pending", label: "Pending Orders" },
+  { value: "accepted", label: "Accepted Orders" },
+  { value: "out_for_delivery", label: "Out for Delivery" },
+  { value: "delivered", label: "Delivered Orders" },
+  { value: "cancelled", label: "Cancelled Orders" },
+];
+
+const getActionSuccessMessage = (order, nextStatus) => {
+  const orderCode = order?.orderId || getOrderIdentifier(order);
+
+  if (nextStatus === "Accepted") {
+    return `Order #${orderCode} accepted successfully.`;
+  }
+
+  if (nextStatus === "Cancelled") {
+    return `Order #${orderCode} rejected successfully.`;
+  }
+
+  if (nextStatus === "Out for delivery") {
+    return `Order #${orderCode} moved to Out for Delivery.`;
+  }
+
+  if (nextStatus === "Delivered") {
+    return `Order #${orderCode} marked as delivered.`;
+  }
+
+  return `Order #${orderCode} updated successfully.`;
+};
 
 export default function Orders() {
   const {
@@ -19,10 +52,25 @@ export default function Orders() {
     loadMoreOrders,
     hasMoreOrders,
     highlightedOrderId,
+    updateOrderStatus,
+    addToast,
   } = useOutletContext();
 
   const [searchInput, setSearchInput] = useState(ordersFilters.search || "");
   const [isViewCleared, setIsViewCleared] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [pendingAction, setPendingAction] = useState({
+    orderId: "",
+    status: "",
+  });
+
+  useEffect(() => {
+    setOrdersFilters((prev) => ({
+      ...prev,
+      status: "",
+      limit: ORDER_LIMIT,
+    }));
+  }, [setOrdersFilters]);
 
   useEffect(() => {
     setSearchInput(ordersFilters.search || "");
@@ -39,14 +87,6 @@ export default function Orders() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchInput, setOrdersFilters]);
-
-  const handleStatusFilterChange = (value) => {
-    setOrdersFilters((prev) => ({
-      ...prev,
-      status: value,
-      limit: ORDER_LIMIT,
-    }));
-  };
 
   const handleClearOrdersView = () => {
     const shouldClear = window.confirm(
@@ -67,8 +107,31 @@ export default function Orders() {
     if (isViewCleared) {
       return [];
     }
-    return orders;
-  }, [isViewCleared, orders]);
+    return orders.filter((order) => matchesOrderFilter(order, statusFilter));
+  }, [isViewCleared, orders, statusFilter]);
+
+  const handleOrderAction = async (order, nextStatus) => {
+    const orderId = getOrderIdentifier(order);
+    if (!orderId || pendingAction.orderId) {
+      return;
+    }
+
+    try {
+      setPendingAction({ orderId, status: nextStatus });
+      await updateOrderStatus(order, nextStatus, {
+        successMessage: getActionSuccessMessage(order, nextStatus),
+      });
+      await refreshOrders();
+    } catch (error) {
+      addToast({
+        title: "Update failed",
+        message: error?.message || "Unable to update order status",
+        type: "error",
+      });
+    } finally {
+      setPendingAction({ orderId: "", status: "" });
+    }
+  };
 
   return (
     <div className="page-stack">
@@ -96,16 +159,14 @@ export default function Orders() {
 
           <select
             className="orders-status-filter"
-            value={ordersFilters.status}
-            onChange={(event) => handleStatusFilterChange(event.target.value)}
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
           >
-            <option value="">All Statuses</option>
-            <option value="Placed">Placed</option>
-            <option value="Accepted">Accepted</option>
-            <option value="Preparing">Preparing</option>
-            <option value="Out for delivery">Out for delivery</option>
-            <option value="Delivered">Delivered</option>
-            <option value="Cancelled">Cancelled</option>
+            {ORDER_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -147,6 +208,11 @@ export default function Orders() {
                     order={order}
                     readOnly
                     isHighlighted={highlightedOrderId === orderId}
+                    onActionClick={handleOrderAction}
+                    actionLoadingStatus={
+                      pendingAction.orderId === orderId ? pendingAction.status : ""
+                    }
+                    actionDisabled={Boolean(pendingAction.orderId)}
                   />
                 );
               })}

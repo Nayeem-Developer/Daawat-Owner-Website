@@ -1,6 +1,8 @@
 import {
   formatCurrency,
   formatDateTime,
+  getDisplayOrderStatus,
+  getOrderActionButtons,
   getOrderIdentifier,
   getOrderItemName,
 } from "../services/formatters";
@@ -11,11 +13,18 @@ export default function OrderCard({
   isUpdating,
   isHighlighted,
   readOnly = false,
+  actionButtons = null,
+  onActionClick,
+  actionLoadingStatus = "",
+  actionDisabled = false,
 }) {
   const orderId = getOrderIdentifier(order);
   const lat = order?.latitude;
   const lng = order?.longitude;
   const hasMap = lat && lng;
+  const statusLabel = getDisplayOrderStatus(order);
+  const resolvedActionButtons =
+    actionButtons || (typeof onActionClick === "function" ? getOrderActionButtons(order) : []);
 
   return (
     <article className={`order-card ${isHighlighted ? "highlight" : ""}`}>
@@ -25,7 +34,7 @@ export default function OrderCard({
           <p>{formatDateTime(order?.createdAt)}</p>
         </div>
         {readOnly ? (
-          <div className="order-status-badge">{order?.status || "Placed"}</div>
+          <div className="order-status-badge">{statusLabel}</div>
         ) : (
           <div className="order-status-wrap">
             <label>Status</label>
@@ -113,6 +122,32 @@ export default function OrderCard({
         <p>Delivery: {formatCurrency(order?.deliveryFee)}</p>
         <p>Total: {formatCurrency(order?.total)}</p>
       </div>
+
+      {resolvedActionButtons.length > 0 ? (
+        <div className="order-card-actions action-row">
+          {resolvedActionButtons.map((action) => {
+            const isLoading = actionLoadingStatus === action.nextStatus;
+            const buttonClass =
+              action.variant === "danger"
+                ? "btn danger"
+                : action.variant === "success"
+                  ? "btn success"
+                  : "btn";
+
+            return (
+              <button
+                key={action.key || action.nextStatus}
+                type="button"
+                className={buttonClass}
+                onClick={() => onActionClick?.(order, action.nextStatus)}
+                disabled={actionDisabled}
+              >
+                {isLoading ? "Please wait..." : action.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </article>
   );
 }

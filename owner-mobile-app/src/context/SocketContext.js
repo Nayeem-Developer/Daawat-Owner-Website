@@ -1,17 +1,25 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
-import { SOCKET_URL } from "../config/apiConfig";
-import { useAuth } from "./AuthContext";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../config/apiConfig';
+import { syncTrackedOrderStatus } from '../services/liveTrackingService';
+import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
 const ORDER_EVENT_NAMES = [
-  "new_order",
-  "order_created",
-  "order_updated",
-  "order_status_updated",
-  "customer_order_cancelled",
-  "orders_cleared",
+  'new_order',
+  'order_created',
+  'order_updated',
+  'order_status_updated',
+  'customer_order_cancelled',
+  'orders_cleared',
 ];
 
 export const SocketProvider = ({ children }) => {
@@ -31,37 +39,38 @@ export const SocketProvider = ({ children }) => {
 
     const socket = io(SOCKET_URL, {
       autoConnect: false,
-      transports: ["websocket", "polling"],
+      transports: ['websocket', 'polling'],
       auth: { token },
     });
 
     socketRef.current = socket;
 
-    socket.on("connect", () => {
+    socket.on('connect', () => {
       setIsConnected(true);
       if (__DEV__) {
-        console.log("[socket] connected");
+        console.log('[socket] connected');
       }
     });
 
-    socket.on("disconnect", (reason) => {
+    socket.on('disconnect', reason => {
       setIsConnected(false);
       if (__DEV__) {
-        console.log("[socket] disconnected", reason);
+        console.log('[socket] disconnected', reason);
       }
     });
 
-    socket.on("connect_error", (error) => {
+    socket.on('connect_error', error => {
       if (__DEV__) {
-        console.log("[socket] connect_error", error?.message || error);
+        console.log('[socket] connect_error', error?.message || error);
       }
     });
 
-    ORDER_EVENT_NAMES.forEach((eventName) => {
-      socket.on(eventName, (payload) => {
+    ORDER_EVENT_NAMES.forEach(eventName => {
+      socket.on(eventName, payload => {
         if (__DEV__) {
-          console.log("[socket] order event", eventName, payload);
+          console.log('[socket] order event', eventName, payload);
         }
+        syncTrackedOrderStatus(payload);
         setLastOrderEvent({
           eventName,
           payload,
@@ -70,12 +79,12 @@ export const SocketProvider = ({ children }) => {
       });
     });
 
-    socket.on("app_status_updated", (payload) => {
+    socket.on('app_status_updated', payload => {
       if (__DEV__) {
-        console.log("[socket] app status updated", payload);
+        console.log('[socket] app status updated', payload);
       }
       setLastAppStatusEvent({
-        eventName: "app_status_updated",
+        eventName: 'app_status_updated',
         payload,
         receivedAt: Date.now(),
       });
@@ -84,11 +93,11 @@ export const SocketProvider = ({ children }) => {
     socket.connect();
 
     return () => {
-      ORDER_EVENT_NAMES.forEach((eventName) => {
+      ORDER_EVENT_NAMES.forEach(eventName => {
         socket.off(eventName);
       });
-      socket.off("connect_error");
-      socket.off("app_status_updated");
+      socket.off('connect_error');
+      socket.off('app_status_updated');
       socket.disconnect();
       setIsConnected(false);
     };
@@ -101,17 +110,19 @@ export const SocketProvider = ({ children }) => {
       lastOrderEvent,
       lastAppStatusEvent,
     }),
-    [isConnected, lastAppStatusEvent, lastOrderEvent]
+    [isConnected, lastAppStatusEvent, lastOrderEvent],
   );
 
-  return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
+  return (
+    <SocketContext.Provider value={value}>{children}</SocketContext.Provider>
+  );
 };
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
 
   if (!context) {
-    throw new Error("useSocket must be used inside SocketProvider");
+    throw new Error('useSocket must be used inside SocketProvider');
   }
 
   return context;

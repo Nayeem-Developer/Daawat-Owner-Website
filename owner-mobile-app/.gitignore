@@ -20,3 +20,4 @@ metro-test*.log
 *.pem
 .env*.local
 *.tsbuildinfo
+android/app/google-services.json

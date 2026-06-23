@@ -1,34 +1,44 @@
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import AppIcon from "../components/AppIcon";
-import LoginScreen from "../screens/LoginScreen";
-import DashboardScreen from "../screens/DashboardScreen";
-import OrdersScreen from "../screens/OrdersScreen";
-import CalendarScreen from "../screens/CalendarScreen";
-import CategoriesScreen from "../screens/CategoriesScreen";
-import MenuItemsScreen from "../screens/MenuItemsScreen";
-import PromotionsScreen from "../screens/PromotionsScreen";
-import BannersScreen from "../screens/BannersScreen";
-import AppStatusScreen from "../screens/AppStatusScreen";
-import SettingsScreen from "../screens/SettingsScreen";
-import { useAuth } from "../context/AuthContext";
-import { colors, radius, shadow, spacing, typography } from "../theme/theme";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AppIcon from '../components/AppIcon';
+import { consumePendingOrdersNavigation } from '../services/notificationService';
+import LoginScreen from '../screens/LoginScreen';
+import DashboardScreen from '../screens/DashboardScreen';
+import OrdersScreen from '../screens/OrdersScreen';
+import CalendarScreen from '../screens/CalendarScreen';
+import CategoriesScreen from '../screens/CategoriesScreen';
+import MenuItemsScreen from '../screens/MenuItemsScreen';
+import PromotionsScreen from '../screens/PromotionsScreen';
+import BannersScreen from '../screens/BannersScreen';
+import AppStatusScreen from '../screens/AppStatusScreen';
+import OrderDetailsScreen from '../screens/OrderDetailsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import { useAuth } from '../context/AuthContext';
+import { navigationRef } from './navigationService';
+import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 
 const Stack = createNativeStackNavigator();
-const logo = require("../../assets/branding/daawat-logo.png");
+const logo = require('../../assets/branding/daawat-logo.png');
 
 const screenOptions = ({ navigation, route }) => ({
-  headerShown: route.name !== "Dashboard",
+  headerShown: route.name !== 'Dashboard',
   headerStyle: {
     backgroundColor: colors.backgroundAlt,
   },
   headerTintColor: colors.text,
-  headerTitle: "",
+  headerTitle: '',
   headerTitleStyle: {
     color: colors.text,
     fontSize: typography.cardTitle,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   headerShadowVisible: false,
   contentStyle: {
@@ -36,12 +46,12 @@ const screenOptions = ({ navigation, route }) => ({
   },
   headerBackTitleVisible: false,
   headerRight:
-    route.name === "Settings"
+    route.name === 'Settings'
       ? undefined
       : () => (
           <Pressable
             style={styles.headerAction}
-            onPress={() => navigation.navigate("Settings")}
+            onPress={() => navigation.navigate('Settings')}
           >
             <AppIcon name="cog-outline" size={18} color={colors.primary} />
           </Pressable>
@@ -67,7 +77,12 @@ export default function OwnerNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        void consumePendingOrdersNavigation();
+      }}
+    >
       <Stack.Navigator>
         {isAuthenticated ? (
           <>
@@ -76,7 +91,16 @@ export default function OwnerNavigator() {
               component={DashboardScreen}
               options={screenOptions}
             />
-            <Stack.Screen name="Orders" component={OrdersScreen} options={screenOptions} />
+            <Stack.Screen
+              name="Orders"
+              component={OrdersScreen}
+              options={screenOptions}
+            />
+            <Stack.Screen
+              name="Order Details"
+              component={OrderDetailsScreen}
+              options={screenOptions}
+            />
             <Stack.Screen
               name="Calendar"
               component={CalendarScreen}
@@ -128,8 +152,8 @@ export default function OwnerNavigator() {
 const styles = StyleSheet.create({
   splash: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.md,
     backgroundColor: colors.background,
     padding: spacing.xxxl,
@@ -138,14 +162,14 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: radius.xl,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
     ...shadow,
   },
   splashTitle: {
     fontSize: typography.title,
-    fontWeight: "800",
+    fontWeight: '800',
     color: colors.text,
   },
   splashSubtitle: {
@@ -164,8 +188,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     ...shadow,
   },
 });

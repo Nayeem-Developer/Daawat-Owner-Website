@@ -1,15 +1,27 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { configureApiClient } from "../api/apiClient";
-import { loginOwner } from "../api/ownerApi";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { configureApiClient } from '../api/apiClient';
+import { loginOwner } from '../api/ownerApi';
+import { stopLiveTracking } from '../services/liveTrackingService';
+import {
+  removeOwnerFcmToken,
+  stopOrderAlert,
+} from '../services/notificationService';
 
 const AuthContext = createContext(null);
 
 const STORAGE_KEYS = {
-  token: "ownerToken",
-  owner: "ownerUser",
-  legacyToken: "daawat_owner_token",
-  legacyOwner: "daawat_owner_profile",
+  token: 'ownerToken',
+  owner: 'ownerUser',
+  legacyToken: 'daawat_owner_token',
+  legacyOwner: 'daawat_owner_profile',
 };
 
 const persistSession = async (token, owner) => {
@@ -25,17 +37,22 @@ const clearSession = async () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState('');
   const [owner, setOwner] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(async () => {
+    const activeToken = token;
+
+    await removeOwnerFcmToken({ ownerToken: activeToken });
+    await stopLiveTracking({ reason: 'manual' });
+    await stopOrderAlert();
     await clearSession();
-    setToken("");
+    setToken('');
     setOwner(null);
     setIsAuthenticated(false);
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     configureApiClient({
@@ -44,7 +61,7 @@ export const AuthProvider = ({ children }) => {
         if (storedToken) {
           return storedToken;
         }
-        return (await AsyncStorage.getItem(STORAGE_KEYS.legacyToken)) || "";
+        return (await AsyncStorage.getItem(STORAGE_KEYS.legacyToken)) || '';
       },
       onUnauthorized: async () => {
         await logout();
@@ -55,15 +72,16 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const [storedToken, storedOwner, legacyToken, legacyOwner] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.token),
-          AsyncStorage.getItem(STORAGE_KEYS.owner),
-          AsyncStorage.getItem(STORAGE_KEYS.legacyToken),
-          AsyncStorage.getItem(STORAGE_KEYS.legacyOwner),
-        ]);
+        const [storedToken, storedOwner, legacyToken, legacyOwner] =
+          await Promise.all([
+            AsyncStorage.getItem(STORAGE_KEYS.token),
+            AsyncStorage.getItem(STORAGE_KEYS.owner),
+            AsyncStorage.getItem(STORAGE_KEYS.legacyToken),
+            AsyncStorage.getItem(STORAGE_KEYS.legacyOwner),
+          ]);
 
-        const nextToken = storedToken || legacyToken || "";
-        const nextOwnerRaw = storedOwner || legacyOwner || "";
+        const nextToken = storedToken || legacyToken || '';
+        const nextOwnerRaw = storedOwner || legacyOwner || '';
 
         if (nextToken) {
           setToken(nextToken);
@@ -99,43 +117,39 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    const normalizedEmail = String(email || "").trim();
+    const normalizedEmail = String(email || '').trim();
     const result = await loginOwner({ email: normalizedEmail, password });
-    const nextToken = result?.token || "";
+    const nextToken = result?.token || '';
     const nextOwner = {
       email: normalizedEmail,
-      name: result?.owner?.name || result?.owner?.ownerName || "Daawat Owner",
+      name: result?.owner?.name || result?.owner?.ownerName || 'Daawat Owner',
       ...result?.owner,
     };
 
     if (!nextToken) {
-      throw new Error("Login failed. Token missing from server response.");
+      throw new Error('Login failed. Token missing from server response.');
     }
 
-    console.log("SAVING_OWNER_AUTH");
     await persistSession(nextToken, nextOwner);
-    console.log("OWNER_AUTH_SAVED");
 
     setToken(nextToken);
     setOwner(nextOwner);
     setIsAuthenticated(true);
 
-    console.log("AUTH_STATE_AFTER_LOGIN:", { isAuthenticated: true });
-
     return result;
   }, []);
 
   const verifyOwnerPassword = useCallback(
-    async (password) => {
-      const email = String(owner?.email || "").trim();
+    async password => {
+      const email = String(owner?.email || '').trim();
 
       if (!email) {
-        throw new Error("Owner email not available.");
+        throw new Error('Owner email not available.');
       }
 
       return loginOwner({ email, password });
     },
-    [owner]
+    [owner],
   );
 
   const value = useMemo(
@@ -149,7 +163,15 @@ export const AuthProvider = ({ children }) => {
       verifyOwnerPassword,
       setOwner,
     }),
-    [isAuthenticated, isLoading, login, logout, owner, token, verifyOwnerPassword]
+    [
+      isAuthenticated,
+      isLoading,
+      login,
+      logout,
+      owner,
+      token,
+      verifyOwnerPassword,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -159,7 +181,7 @@ export const useAuth = () => {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider");
+    throw new Error('useAuth must be used inside AuthProvider');
   }
 
   return context;

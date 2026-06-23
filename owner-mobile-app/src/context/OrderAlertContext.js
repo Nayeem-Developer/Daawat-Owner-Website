@@ -8,6 +8,10 @@ import {
   stopOrderAlertSound,
 } from "../services/orderAlertSound";
 import { getPendingOrdersOldestFirst } from "../utils/orderAlert";
+import {
+  displayNewOrderNotification,
+  stopOrderAlert,
+} from "../services/notificationService";
 
 const POLL_INTERVAL_MS = 15000;
 const OrderAlertContext = createContext(null);
@@ -84,11 +88,13 @@ export const OrderAlertProvider = ({ children }) => {
   useEffect(() => {
     if (!isAuthenticated || !activeOrder) {
       stopOrderAlertSound();
+      void stopOrderAlert();
       return undefined;
     }
 
     setErrorMessage("");
     void startOrderAlertSound();
+    void displayNewOrderNotification(activeOrder);
 
     return () => {
       stopOrderAlertSound();
@@ -108,6 +114,7 @@ export const OrderAlertProvider = ({ children }) => {
         setErrorMessage("");
 
         await updateOrderStatus(currentOrderId, nextStatus);
+        await stopOrderAlert(currentOrderId);
         setActiveOrder((current) => (getOrderKey(current) === currentOrderId ? null : current));
         await refreshOrderAlerts({ broadcast: true });
       } catch (error) {

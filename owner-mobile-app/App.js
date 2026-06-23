@@ -4,6 +4,7 @@ import OwnerNavigator from "./src/navigation/OwnerNavigator";
 import { AuthProvider } from "./src/context/AuthContext";
 import { OrderAlertProvider } from "./src/context/OrderAlertContext";
 import { SocketProvider } from "./src/context/SocketContext";
+import NotificationBootstrap from "./src/components/NotificationBootstrap";
 import { colors } from "./src/theme/theme";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
                 translucent={false}
               />
               <OwnerNavigator />
+              <NotificationBootstrap />
             </OrderAlertProvider>
           </SocketProvider>
         </AuthProvider>

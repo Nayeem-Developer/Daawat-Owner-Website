@@ -36,6 +36,7 @@ import {
 const DEFAULT_TIMES = {
   lunch: "12:30 PM",
   dinner: "7:30 PM",
+  custom: "9:00 AM",
 };
 
 const TIMEZONE = "Asia/Kolkata";
@@ -106,6 +107,72 @@ const capitalize = (value) => {
   return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : "Daily";
 };
 
+const formatCampaignTypeLabel = (value) => {
+  switch (String(value || "").trim().toLowerCase()) {
+    case "lunch":
+    case "daily_lunch":
+      return "Lunch";
+    case "dinner":
+    case "daily_dinner":
+      return "Dinner";
+    case "custom":
+    case "custom_daily":
+      return "Custom";
+    default:
+      return capitalize(value);
+  }
+};
+
+const mapScheduleType = (campaignType) => {
+  switch (String(campaignType || "").trim().toLowerCase()) {
+    case "lunch":
+    case "daily_lunch":
+      return "daily_lunch";
+    case "dinner":
+    case "daily_dinner":
+      return "daily_dinner";
+    case "custom":
+    case "custom_daily":
+      return "custom_daily";
+    default:
+      return "";
+  }
+};
+
+const formatScheduledTimeValue = (value) => {
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  const already24Hour = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(text);
+  if (already24Hour) {
+    return text;
+  }
+
+  const twelveHour = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(text);
+  if (!twelveHour) {
+    return "";
+  }
+
+  let hour = Number(twelveHour[1]);
+  const minute = twelveHour[2];
+  const meridiem = twelveHour[3].toUpperCase();
+
+  if (Number.isNaN(hour) || hour < 1 || hour > 12) {
+    return "";
+  }
+
+  if (meridiem === "AM") {
+    hour = hour === 12 ? 0 : hour;
+  } else {
+    hour = hour === 12 ? 12 : hour + 12;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+};
+
 const formatDateTime = (value) => {
   const date = new Date(value);
   if (!value || Number.isNaN(date.getTime())) {
@@ -158,6 +225,10 @@ const validatePromotion = (form, { requireTime = false } = {}) => {
 
   if (requireTime && !form.scheduledTime.trim()) {
     return "Schedule time is required";
+  }
+
+  if (requireTime && !formatScheduledTimeValue(form.scheduledTime)) {
+    return "Schedule time must be in HH:mm or AM/PM format";
   }
 
   return "";
@@ -314,7 +385,7 @@ export default function PromotionsScreen() {
     setScheduleForm((current) => ({
       ...current,
       campaignType,
-      scheduledTime: DEFAULT_TIMES[campaignType],
+      scheduledTime: DEFAULT_TIMES[campaignType] || current.scheduledTime,
     }));
   };
 
@@ -366,11 +437,21 @@ export default function PromotionsScreen() {
       return;
     }
 
+    const scheduleType = mapScheduleType(scheduleForm.campaignType);
+    const scheduledTime = formatScheduledTimeValue(scheduleForm.scheduledTime);
+
+    if (!scheduleType || !scheduledTime) {
+      Alert.alert(
+        "Validation",
+        "Could not save schedule. Please check title, message, and time."
+      );
+      return;
+    }
+
     const duplicate = campaigns.find(
       (campaign) =>
-        campaign.campaignType === scheduleForm.campaignType &&
-        String(campaign.scheduledTime).trim().toLowerCase() ===
-          scheduleForm.scheduledTime.trim().toLowerCase() &&
+        mapScheduleType(campaign.campaignType) === scheduleType &&
+        formatScheduledTimeValue(campaign.scheduledTime) === scheduledTime &&
         campaign.title.trim().toLowerCase() === scheduleForm.title.trim().toLowerCase()
     );
 
@@ -381,22 +462,35 @@ export default function PromotionsScreen() {
 
     try {
       setSavingSchedule(true);
-      await savePromoCampaign({
-        campaignType: scheduleForm.campaignType,
+      const payload = {
         title: scheduleForm.title.trim(),
         body: scheduleForm.body.trim(),
         imageUrl: scheduleForm.imageUrl.trim(),
         itemId: scheduleForm.itemId,
         categoryId: scheduleForm.categoryId,
-        scheduledTime: scheduleForm.scheduledTime.trim(),
+        scheduleType,
+        scheduledTime,
         timezone: TIMEZONE,
         isActive: scheduleForm.isActive,
+      };
+      console.log("PROMO_SCHEDULE_PAYLOAD", {
+        title: payload.title,
+        scheduleType: payload.scheduleType,
+        scheduledTime: payload.scheduledTime,
+        timezone: payload.timezone,
+        hasImage: Boolean(payload.imageUrl),
+        hasItem: Boolean(payload.itemId),
       });
+      await savePromoCampaign(payload);
       Alert.alert("Schedule saved", "Promotion campaign saved successfully");
       setScheduleForm(createScheduleForm());
       await loadData();
     } catch (error) {
-      Alert.alert("Save failed", error?.message || "Unable to save campaign");
+      console.log("PROMO_SCHEDULE_ERROR", error?.data || error?.message || error);
+      Alert.alert(
+        "Save failed",
+        "Could not save schedule. Please check title, message, and time."
+      );
     } finally {
       setSavingSchedule(false);
     }
@@ -559,10 +653,10 @@ export default function PromotionsScreen() {
         <Text style={styles.cardTitle}>Daily Schedule</Text>
         <Text style={styles.fieldLabel}>Campaign type</Text>
         <View style={styles.segmentRow}>
-          {["lunch", "dinner"].map((type) => (
+          {["lunch", "dinner", "custom"].map((type) => (
             <AppButton
               key={type}
-              label={capitalize(type)}
+              label={formatCampaignTypeLabel(type)}
               variant={scheduleForm.campaignType === type ? "primary" : "chip"}
               size="sm"
               fullWidth={false}
@@ -696,7 +790,7 @@ export default function PromotionsScreen() {
                   <View style={styles.campaignTitleWrap}>
                     <Text style={styles.campaignTitle}>{campaign.title}</Text>
                     <Text style={styles.campaignMeta}>
-                      {capitalize(campaign.campaignType)} - {campaign.scheduledTime || "No time"}
+                      {formatCampaignTypeLabel(campaign.campaignType)} - {campaign.scheduledTime || "No time"}
                     </Text>
                     {campaign.lastSentAt ? (
                       <Text style={styles.campaignMeta}>

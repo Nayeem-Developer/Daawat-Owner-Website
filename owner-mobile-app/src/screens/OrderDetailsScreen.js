@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  ToastAndroid,
   View,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import AppButton from '../components/AppButton';
 import AppIcon from '../components/AppIcon';
@@ -61,6 +64,56 @@ export default function OrderDetailsScreen({ route }) {
   const [startingTracking, setStartingTracking] = useState(false);
   const [trackingState, setTrackingState] = useState(getLiveTrackingState());
   const lastHandledEvent = useRef(0);
+
+  const showCopiedMessage = useCallback(message => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+      return;
+    }
+
+    Alert.alert('Copied', message);
+  }, []);
+
+  const addressCopyText = useMemo(() => {
+    const lines = [];
+    const customerName =
+      typeof order?.customerName === 'string'
+        ? order.customerName.trim()
+        : '';
+    const phone =
+      typeof order?.phone === 'string' ? order.phone.trim() : '';
+    const address =
+      typeof order?.addressText === 'string'
+        ? order.addressText.trim()
+        : typeof order?.address === 'string'
+          ? order.address.trim()
+          : '';
+
+    if (customerName && customerName.toLowerCase() !== 'customer') {
+      lines.push(`Customer: ${customerName}`);
+    }
+
+    if (phone && phone.toLowerCase() !== 'n/a') {
+      lines.push(`Phone: ${phone}`);
+    }
+
+    if (address && address.toLowerCase() !== 'address not available') {
+      lines.push(`Address: ${address}`);
+    }
+
+    return lines.join('\n');
+  }, [order?.address, order?.addressText, order?.customerName, order?.phone]);
+
+  const mapLink = useMemo(() => {
+    const latitude = Number(order?.latitude);
+    const longitude = Number(order?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return '';
+    }
+
+    return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+  }, [order?.latitude, order?.longitude]);
 
   const refreshOrder = useCallback(
     async ({ showLoader = false, silent = false } = {}) => {
@@ -282,6 +335,26 @@ export default function OrderDetailsScreen({ route }) {
     });
   }, [order]);
 
+  const handleCopyAddress = useCallback(() => {
+    if (!addressCopyText) {
+      Alert.alert('Address', 'Address not available for this order.');
+      return;
+    }
+
+    Clipboard.setString(addressCopyText);
+    showCopiedMessage('Address copied');
+  }, [addressCopyText, showCopiedMessage]);
+
+  const handleCopyMapLink = useCallback(() => {
+    if (!mapLink) {
+      Alert.alert('Map link', 'Map location not available');
+      return;
+    }
+
+    Clipboard.setString(mapLink);
+    showCopiedMessage('Map link copied');
+  }, [mapLink, showCopiedMessage]);
+
   if (loading && !order) {
     return (
       <View style={styles.centered}>
@@ -341,6 +414,9 @@ export default function OrderDetailsScreen({ route }) {
         order={order}
         pendingStatus={pendingStatus}
         onStatusPress={handleStatusUpdate}
+        showCopyTools
+        onCopyAddress={handleCopyAddress}
+        onCopyMapLink={mapLink ? handleCopyMapLink : null}
       />
 
       <View style={styles.trackingCard}>

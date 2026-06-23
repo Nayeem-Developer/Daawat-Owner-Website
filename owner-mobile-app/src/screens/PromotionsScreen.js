@@ -88,6 +88,19 @@ const normalizeCampaign = (campaign) => {
   };
 };
 
+const filterMenuItems = (items, searchTerm) => {
+  const query = String(searchTerm || "").trim().toLowerCase();
+
+  if (!query) {
+    return items;
+  }
+
+  return items.filter((item) => {
+    const searchable = [item.name, item.categoryName].filter(Boolean).join(" ").toLowerCase();
+    return searchable.includes(query);
+  });
+};
+
 const capitalize = (value) => {
   const text = String(value || "").trim();
   return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : "Daily";
@@ -160,16 +173,13 @@ function NotificationPreview({ title, body, imageUrl }) {
         </Text>
       </View>
       {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.previewImage} /> : null}
-      <Text style={styles.previewNote}>
-        This will be sent to customers who allowed notifications.
-      </Text>
     </View>
   );
 }
 
-function MenuItemSelector({ items, selectedItemId, onSelect }) {
+function MenuItemSelector({ items, selectedItemId, onSelect, emptyText }) {
   if (items.length === 0) {
-    return <Text style={styles.helperText}>No menu items available.</Text>;
+    return <Text style={styles.helperText}>{emptyText}</Text>;
   }
 
   return (
@@ -220,6 +230,8 @@ export default function PromotionsScreen() {
   const [sending, setSending] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [pendingCampaignId, setPendingCampaignId] = useState("");
+  const [sendItemSearch, setSendItemSearch] = useState("");
+  const [scheduleItemSearch, setScheduleItemSearch] = useState("");
 
   const visibleMenuItems = useMemo(
     () =>
@@ -227,6 +239,16 @@ export default function PromotionsScreen() {
         .map(normalizeItem)
         .filter((item) => item._id && item.name && item.isActive && item.isAvailable),
     [menuItems]
+  );
+
+  const filteredSendMenuItems = useMemo(
+    () => filterMenuItems(visibleMenuItems, sendItemSearch),
+    [sendItemSearch, visibleMenuItems]
+  );
+
+  const filteredScheduleMenuItems = useMemo(
+    () => filterMenuItems(visibleMenuItems, scheduleItemSearch),
+    [scheduleItemSearch, visibleMenuItems]
   );
 
   const loadData = useCallback(async () => {
@@ -267,6 +289,7 @@ export default function PromotionsScreen() {
   );
 
   const applyMenuItemToSendForm = (item) => {
+    setSendItemSearch("");
     setSendForm((current) => ({
       ...current,
       itemId: item._id,
@@ -277,6 +300,7 @@ export default function PromotionsScreen() {
   };
 
   const applyMenuItemToScheduleForm = (item) => {
+    setScheduleItemSearch("");
     setScheduleForm((current) => ({
       ...current,
       itemId: item._id,
@@ -303,7 +327,7 @@ export default function PromotionsScreen() {
 
     Alert.alert(
       "Send notification?",
-      "This notification will be sent to all customers who allowed notifications.",
+      "Send this promotion to customers now?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -483,11 +507,29 @@ export default function PromotionsScreen() {
         />
 
         <Text style={styles.fieldLabel}>Select Menu Item optional</Text>
+        <AppInput
+          value={sendItemSearch}
+          onChangeText={setSendItemSearch}
+          placeholder="Search menu item..."
+          rightIcon={sendItemSearch ? "close-circle-outline" : null}
+          onRightIconPress={() => setSendItemSearch("")}
+        />
         <MenuItemSelector
-          items={visibleMenuItems}
+          items={filteredSendMenuItems}
           selectedItemId={sendForm.itemId}
           onSelect={applyMenuItemToSendForm}
+          emptyText={
+            visibleMenuItems.length === 0
+              ? "No menu items available."
+              : "No items found"
+          }
         />
+        {sendForm.itemId ? (
+          <Text style={styles.selectedItemText}>
+            Selected:{" "}
+            {visibleMenuItems.find((item) => item._id === sendForm.itemId)?.name || "Menu item"}
+          </Text>
+        ) : null}
         {sendForm.itemId ? (
           <AppButton
             label="Clear selected item"
@@ -559,11 +601,29 @@ export default function PromotionsScreen() {
         />
 
         <Text style={styles.fieldLabel}>Select Menu Item optional</Text>
+        <AppInput
+          value={scheduleItemSearch}
+          onChangeText={setScheduleItemSearch}
+          placeholder="Search menu item..."
+          rightIcon={scheduleItemSearch ? "close-circle-outline" : null}
+          onRightIconPress={() => setScheduleItemSearch("")}
+        />
         <MenuItemSelector
-          items={visibleMenuItems}
+          items={filteredScheduleMenuItems}
           selectedItemId={scheduleForm.itemId}
           onSelect={applyMenuItemToScheduleForm}
+          emptyText={
+            visibleMenuItems.length === 0
+              ? "No menu items available."
+              : "No items found"
+          }
         />
+        {scheduleForm.itemId ? (
+          <Text style={styles.selectedItemText}>
+            Selected:{" "}
+            {visibleMenuItems.find((item) => item._id === scheduleForm.itemId)?.name || "Menu item"}
+          </Text>
+        ) : null}
         {scheduleForm.itemId ? (
           <AppButton
             label="Clear selected item"
@@ -813,11 +873,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.chip,
   },
-  previewNote: {
-    color: colors.muted,
-    fontSize: typography.tiny,
-    fontWeight: "600",
-  },
   segmentRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -880,6 +935,11 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: typography.small,
     fontWeight: "600",
+  },
+  selectedItemText: {
+    color: colors.textSoft,
+    fontSize: typography.small,
+    fontWeight: "700",
   },
   statusBadge: {
     borderRadius: radius.pill,

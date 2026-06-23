@@ -86,17 +86,46 @@ const MetaChip = ({ icon, label }) => (
   </View>
 );
 
+const CopyActionButton = ({ onPress, disabled = false }) => (
+  <Pressable
+    onPress={onPress}
+    disabled={disabled}
+    style={({ pressed }) => [
+      styles.copyButton,
+      disabled && styles.copyButtonDisabled,
+      pressed && !disabled && styles.copyButtonPressed,
+    ]}
+    hitSlop={8}
+  >
+    <AppIcon
+      name="content-copy"
+      size={18}
+      color={disabled ? colors.muted : colors.primary}
+    />
+  </Pressable>
+);
+
 export default function OrderCard({
   order,
   onStatusPress,
   pendingStatus = '',
   onViewDetails,
+  showCopyTools = false,
+  onCopyAddress,
+  onCopyMapLink,
 }) {
   const { width } = useWindowDimensions();
   const status = order?.status || order?.orderStatus || 'Placed';
   const statusPalette = getStatusPalette(status);
   const actions = getActionsForStatus(status);
   const isCompact = width < 390;
+  const latitude = Number(order?.latitude);
+  const longitude = Number(order?.longitude);
+  const hasMapLocation =
+    Number.isFinite(latitude) && Number.isFinite(longitude);
+  const mapUrl = hasMapLocation
+    ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+    : '';
 
   return (
     <View style={styles.card}>
@@ -146,9 +175,63 @@ export default function OrderCard({
         </View>
       </View>
 
-      <Text style={styles.address}>
-        {order?.addressText || order?.address || 'Address not available'}
-      </Text>
+      {showCopyTools ? (
+        <View style={styles.copyToolsSection}>
+          <View style={styles.infoCard}>
+            <View style={styles.infoHeader}>
+              <Text style={styles.infoLabel}>Address</Text>
+              <CopyActionButton
+                onPress={onCopyAddress}
+                disabled={!onCopyAddress}
+              />
+            </View>
+            <Text style={styles.address}>
+              {order?.addressText || order?.address || 'Address not available'}
+            </Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <View style={styles.infoHeader}>
+              <Text style={styles.infoLabel}>Map Link</Text>
+              {hasMapLocation ? (
+                <CopyActionButton
+                  onPress={onCopyMapLink}
+                  disabled={!onCopyMapLink}
+                />
+              ) : null}
+            </View>
+            {hasMapLocation ? (
+              <View style={styles.locationActionRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.locationButton,
+                    pressed && styles.locationButtonPressed,
+                  ]}
+                  onPress={() => Linking.openURL(mapUrl)}
+                >
+                  <AppIcon
+                    name="map-marker-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.locationText}>Open location</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Text style={styles.mapUnavailableText}>
+                Map location not available
+              </Text>
+            )}
+            <Text style={styles.copyHint}>
+              Copy and share with delivery boy on WhatsApp.
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <Text style={styles.address}>
+          {order?.addressText || order?.address || 'Address not available'}
+        </Text>
+      )}
 
       <View style={styles.metaRow}>
         <MetaChip
@@ -194,12 +277,12 @@ export default function OrderCard({
         )}
       </View>
 
-      {order?.latitude && order?.longitude ? (
+      {!showCopyTools && order?.latitude && order?.longitude ? (
         <Pressable
           style={styles.locationButton}
           onPress={() =>
             Linking.openURL(
-              `https://www.google.com/maps?q=${order.latitude},${order.longitude}`,
+              mapUrl,
             )
           }
         >
@@ -326,6 +409,50 @@ const styles = StyleSheet.create({
     fontSize: typography.small,
     lineHeight: 19,
   },
+  copyToolsSection: {
+    gap: spacing.sm,
+  },
+  infoCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  infoLabel: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: '700',
+  },
+  copyButton: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copyButtonDisabled: {
+    opacity: 0.52,
+  },
+  copyButtonPressed: {
+    opacity: 0.92,
+  },
+  locationActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -387,10 +514,21 @@ const styles = StyleSheet.create({
     gap: 6,
     alignSelf: 'flex-start',
   },
+  locationButtonPressed: {
+    opacity: 0.92,
+  },
   locationText: {
     color: colors.primary,
     fontSize: typography.small,
     fontWeight: '700',
+  },
+  mapUnavailableText: {
+    color: colors.muted,
+    fontSize: typography.small,
+  },
+  copyHint: {
+    color: colors.muted,
+    fontSize: typography.tiny,
   },
   actions: {
     flexDirection: 'row',

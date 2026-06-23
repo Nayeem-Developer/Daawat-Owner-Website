@@ -6,6 +6,7 @@ const titles = {
   "/orders": "Orders",
   "/categories": "Categories",
   "/menu-items": "Menu Items",
+  "/promotions": "Promotions",
   "/banners": "Banners",
   "/settings": "Settings",
 };

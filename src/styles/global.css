@@ -2247,3 +2247,290 @@ th {
   }
 }
 
+.promotions-page {
+  gap: 1rem;
+}
+
+.promotions-hero-head,
+.promotions-section-head,
+.promotions-field-head,
+.promotions-campaign-top,
+.promotions-campaign-actions,
+.promotions-actions-row {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.promotions-hero-head,
+.promotions-section-head,
+.promotions-field-head,
+.promotions-campaign-top {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.promotions-hero h2 {
+  font-size: 2rem;
+}
+
+.promotions-hero p,
+.promotions-section-head p,
+.promotions-preview-note,
+.promotions-helper-text,
+.promotions-campaign-card p,
+.promotions-campaign-last-sent {
+  color: var(--muted);
+}
+
+.promotions-hero p,
+.promotions-section-head p {
+  margin-top: 0.2rem;
+}
+
+.promotions-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.promotions-helper-text {
+  font-size: 0.78rem;
+}
+
+.promotions-field-stack {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.promotions-field-head {
+  flex-wrap: wrap;
+}
+
+.promotions-field-head span {
+  color: #ebdecd;
+  font-size: 0.92rem;
+}
+
+.promotions-inline-btn {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.promotions-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.7rem;
+}
+
+.promotions-item-chip {
+  border: 1px solid rgba(213, 164, 74, 0.25);
+  background: linear-gradient(160deg, rgba(35, 26, 26, 0.92), rgba(18, 14, 14, 0.96));
+  color: #f7efe2;
+  border-radius: 12px;
+  padding: 0.75rem 0.8rem;
+  text-align: left;
+  display: grid;
+  gap: 0.2rem;
+  cursor: pointer;
+}
+
+.promotions-item-chip:hover {
+  border-color: rgba(213, 164, 74, 0.65);
+}
+
+.promotions-item-chip.selected {
+  border-color: rgba(213, 164, 74, 0.95);
+  background: linear-gradient(
+    130deg,
+    rgba(160, 39, 46, 0.48),
+    rgba(213, 164, 74, 0.28) 58%,
+    rgba(26, 20, 20, 0.95)
+  );
+  box-shadow: 0 0 0 1px rgba(213, 164, 74, 0.34);
+}
+
+.promotions-item-chip strong {
+  font-size: 0.94rem;
+}
+
+.promotions-item-chip span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.promotions-preview-card {
+  border: 1px solid rgba(213, 164, 74, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(31, 24, 24, 0.92), rgba(18, 14, 14, 0.96));
+  overflow: hidden;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+}
+
+.promotions-preview-copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.promotions-preview-copy h4 {
+  font-size: 1.3rem;
+}
+
+.promotions-preview-copy p {
+  color: #ebdecd;
+  line-height: 1.5;
+}
+
+.promotions-preview-media {
+  width: 100%;
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.promotions-preview-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.promotions-preview-note {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.promotions-actions-row {
+  justify-content: flex-start;
+}
+
+.promotions-toggle-row {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.promotions-type-pill {
+  border: 1px solid rgba(213, 164, 74, 0.35);
+  background: rgba(28, 22, 22, 0.92);
+  color: #ecd7b5;
+  border-radius: 999px;
+  padding: 0.52rem 0.9rem;
+  cursor: pointer;
+}
+
+.promotions-type-pill.active {
+  border-color: rgba(213, 164, 74, 0.92);
+  color: #fff5df;
+  background: linear-gradient(130deg, rgba(160, 39, 46, 0.54), rgba(213, 164, 74, 0.32));
+}
+
+.promotions-schedule-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: end;
+}
+
+.promotions-check-row {
+  padding-bottom: 0.72rem;
+}
+
+.promotions-empty-state {
+  border: 1px solid rgba(213, 164, 74, 0.18);
+  border-radius: 14px;
+  background: rgba(25, 19, 19, 0.78);
+  padding: 1rem;
+}
+
+.promotions-campaign-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.promotions-campaign-card {
+  border: 1px solid rgba(213, 164, 74, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(35, 26, 26, 0.92), rgba(18, 14, 14, 0.96));
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.promotions-campaign-card h4 {
+  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.promotions-campaign-card p {
+  font-size: 0.88rem;
+  margin-top: 0.2rem;
+}
+
+.promotions-campaign-last-sent {
+  display: inline-block;
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+}
+
+.promotions-status-badge {
+  border-radius: 999px;
+  padding: 0.42rem 0.72rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.promotions-status-badge.active {
+  color: #98f2c8;
+  border-color: rgba(34, 150, 95, 0.6);
+  background: rgba(34, 150, 95, 0.14);
+}
+
+.promotions-status-badge.inactive {
+  color: #ffaeae;
+  border-color: rgba(201, 66, 66, 0.65);
+  background: rgba(201, 66, 66, 0.16);
+}
+
+.promotions-campaign-actions {
+  flex-wrap: wrap;
+}
+
+.promotions-skeleton-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.promotions-skeleton-block {
+  height: 180px;
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 240% 100%;
+  animation: shimmer 1.35s infinite linear;
+}
+
+@media (max-width: 760px) {
+  .promotions-hero-head,
+  .promotions-section-head,
+  .promotions-campaign-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .promotions-schedule-grid {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .promotions-check-row {
+    padding-bottom: 0;
+  }
+}
+

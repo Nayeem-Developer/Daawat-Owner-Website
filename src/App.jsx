@@ -7,6 +7,7 @@ import Banners from "./pages/Banners";
 import Login from "./pages/Login";
 import MenuItems from "./pages/MenuItems";
 import Orders from "./pages/Orders";
+import Promotions from "./pages/Promotions";
 import Settings from "./pages/Settings";
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/menu-items" element={<MenuItems />} />
+        <Route path="/promotions" element={<Promotions />} />
         <Route path="/banners" element={<Banners />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

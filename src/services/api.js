@@ -130,6 +130,70 @@ export const getErrorMessage = (error, fallback = "Something went wrong") => {
   return error?.message || fallback;
 };
 
+export const getListFromResponseBody = (responseBody, keys = []) => {
+  const items = Array.isArray(responseBody?.data)
+    ? responseBody.data
+    : Array.isArray(responseBody?.items)
+      ? responseBody.items
+      : Array.isArray(responseBody)
+        ? responseBody
+        : [];
+
+  if (items.length > 0) {
+    return items;
+  }
+
+  for (const key of keys) {
+    if (Array.isArray(responseBody?.[key])) {
+      return responseBody[key];
+    }
+
+    if (Array.isArray(responseBody?.data?.[key])) {
+      return responseBody.data[key];
+    }
+  }
+
+  return items;
+};
+
+export const sendPromoNotification = async ({
+  title,
+  body,
+  imageUrl = "",
+  itemId = "",
+  categoryId = "",
+}) => {
+  const response = await api.post("/api/owner/notifications/promotional/send", {
+    title,
+    body,
+    imageUrl,
+    itemId,
+    categoryId,
+  });
+
+  return response.data;
+};
+
+export const savePromoCampaign = async (payload) => {
+  const response = await api.post("/api/owner/notifications/promotional/schedule", payload);
+  return response.data?.data || response.data?.campaign || response.data;
+};
+
+export const getPromoCampaigns = async () => {
+  const response = await api.get("/api/owner/notifications/promotional/campaigns");
+  return getListFromResponseBody(response.data, ["campaigns"]);
+};
+
+export const togglePromoCampaign = async (id) => {
+  const response = await api.patch(`/api/owner/notifications/promotional/campaigns/${id}/toggle`);
+  return response.data?.data || response.data?.campaign || response.data;
+};
+
+export const deletePromoCampaign = async (id) => {
+  const response = await api.delete(`/api/owner/notifications/promotional/campaigns/${id}`);
+  return response.data;
+};
+
 export const uploadImage = async (file) => {
   if (!file) {
     throw new Error("No image file selected");

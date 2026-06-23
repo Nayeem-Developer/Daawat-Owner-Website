@@ -51,6 +51,13 @@ const quickActions = [
     tone: "gold",
   },
   {
+    title: "Promotions",
+    subtitle: "Send offers to customers",
+    screen: "Promotions",
+    icon: "bell-ring-outline",
+    tone: "info",
+  },
+  {
     title: "Banners",
     subtitle: "Manage home banners",
     screen: "Banners",

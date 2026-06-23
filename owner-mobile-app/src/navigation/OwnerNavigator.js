@@ -8,6 +8,7 @@ import OrdersScreen from "../screens/OrdersScreen";
 import CalendarScreen from "../screens/CalendarScreen";
 import CategoriesScreen from "../screens/CategoriesScreen";
 import MenuItemsScreen from "../screens/MenuItemsScreen";
+import PromotionsScreen from "../screens/PromotionsScreen";
 import BannersScreen from "../screens/BannersScreen";
 import AppStatusScreen from "../screens/AppStatusScreen";
 import SettingsScreen from "../screens/SettingsScreen";
@@ -89,6 +90,11 @@ export default function OwnerNavigator() {
             <Stack.Screen
               name="Menu Items"
               component={MenuItemsScreen}
+              options={screenOptions}
+            />
+            <Stack.Screen
+              name="Promotions"
+              component={PromotionsScreen}
               options={screenOptions}
             />
             <Stack.Screen

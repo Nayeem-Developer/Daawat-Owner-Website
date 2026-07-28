@@ -21,63 +21,7 @@ import {
   formatDateTime,
   getOrderItemName,
 } from '../utils/formatters';
-
-const getActionsForStatus = status => {
-  const normalized = String(status || '')
-    .trim()
-    .toLowerCase();
-
-  if (
-    normalized === 'placed' ||
-    normalized === 'pending' ||
-    normalized.includes('pending confirmation')
-  ) {
-    return [
-      {
-        label: 'Accept',
-        status: 'Accepted',
-        variant: 'success',
-        icon: 'check-circle-outline',
-      },
-      {
-        label: 'Reject',
-        status: 'Rejected',
-        variant: 'danger',
-        icon: 'close-circle-outline',
-      },
-    ];
-  }
-
-  if (normalized === 'accepted' || normalized === 'confirmed') {
-    return [
-      {
-        label: 'Out for Delivery',
-        status: 'Out for delivery',
-        variant: 'primary',
-        icon: 'truck-delivery-outline',
-      },
-      {
-        label: 'Cancel',
-        status: 'Cancelled',
-        variant: 'ghost',
-        icon: 'close-circle-outline',
-      },
-    ];
-  }
-
-  if (normalized === 'out for delivery') {
-    return [
-      {
-        label: 'Delivered',
-        status: 'Delivered',
-        variant: 'success',
-        icon: 'truck-delivery-outline',
-      },
-    ];
-  }
-
-  return [];
-};
+import { getOrderActions } from '../utils/orderStatus';
 
 const MetaChip = ({ icon, label }) => (
   <View style={styles.metaChip}>
@@ -117,7 +61,7 @@ export default function OrderCard({
   const { width } = useWindowDimensions();
   const status = order?.status || order?.orderStatus || 'Placed';
   const statusPalette = getStatusPalette(status);
-  const actions = getActionsForStatus(status);
+  const actions = getOrderActions(status);
   const isCompact = width < 390;
   const latitude = Number(order?.latitude);
   const longitude = Number(order?.longitude);

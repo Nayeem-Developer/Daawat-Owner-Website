@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,9 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AppButton from '../components/AppButton';
 import AppIcon from '../components/AppIcon';
 import OrderCard from '../components/OrderCard';
-import { fetchOrders, updateOrderStatus } from '../api/ownerApi';
-import { useOrderAlert } from '../context/OrderAlertContext';
-import { useSocket } from '../context/SocketContext';
+import { useOwnerOrders } from '../context/OwnerOrdersContext';
 import useResponsiveScreen from '../hooks/useResponsiveScreen';
 import {
   getActiveTrackingOrderId,
@@ -30,6 +28,11 @@ import {
 import { stopOrderAlert } from '../services/notificationService';
 import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 import { formatDateTime, getOrderIdentifier } from '../utils/formatters';
+import {
+  isCancelledOrderStatus,
+  isDeliveredOrderStatus,
+  normalizeOrderStatus,
+} from '../utils/orderStatus';
 
 const TRACKABLE_STATUS = 'out for delivery';
 const TERMINAL_STATUSES = new Set([
@@ -39,31 +42,35 @@ const TERMINAL_STATUSES = new Set([
   'completed',
 ]);
 
-const normalizeStatus = status =>
-  String(status || '')
-    .trim()
-    .toLowerCase();
-
 const isTrackableStatus = status =>
-  normalizeStatus(status) === TRACKABLE_STATUS;
+  normalizeOrderStatus(status) === TRACKABLE_STATUS;
 
 const isTerminalStatus = status =>
-  TERMINAL_STATUSES.has(normalizeStatus(status));
+  TERMINAL_STATUSES.has(normalizeOrderStatus(status));
 
 export default function OrderDetailsScreen({ route }) {
   const initialOrder = route?.params?.order || null;
-  const orderId = getOrderIdentifier(initialOrder);
+  const orderId =
+    route?.params?.orderId || getOrderIdentifier(initialOrder);
   const { bottomPadding, horizontalPadding, maxContentWidth, topPadding } =
     useResponsiveScreen();
-  const { lastOrderEvent } = useSocket();
-  const { requestOrderAlertRefresh } = useOrderAlert();
-  const [order, setOrder] = useState(initialOrder);
-  const [loading, setLoading] = useState(!initialOrder);
+  const {
+    getOrderById,
+    hasLoaded,
+    isLoading,
+    isRefreshing,
+    pendingActions,
+    refreshOrders,
+    refreshOrdersIfStale,
+    updateOrderStatus,
+  } = useOwnerOrders();
   const [refreshing, setRefreshing] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState('');
   const [startingTracking, setStartingTracking] = useState(false);
   const [trackingState, setTrackingState] = useState(getLiveTrackingState());
-  const lastHandledEvent = useRef(0);
+
+  const liveOrder = getOrderById(orderId);
+  const order = liveOrder || (!hasLoaded ? initialOrder : null);
+  const pendingStatus = pendingActions[order?._id] || '';
 
   const showCopiedMessage = useCallback(message => {
     if (Platform.OS === 'android') {
@@ -116,24 +123,17 @@ export default function OrderDetailsScreen({ route }) {
   }, [order?.latitude, order?.longitude]);
 
   const refreshOrder = useCallback(
-    async ({ showLoader = false, silent = false } = {}) => {
+    async ({ silent = false, force = false } = {}) => {
       if (!orderId) {
         return;
       }
 
-      if (showLoader) {
-        setLoading(true);
-      }
-
       try {
-        const response = await fetchOrders({ limit: 100 });
-        const matchedOrder = (response.orders || []).find(
-          item => item._id === orderId,
-        );
-
-        if (matchedOrder) {
-          setOrder(matchedOrder);
-        }
+        await refreshOrders({
+          silent,
+          force,
+          reason: 'order_details_refresh',
+        });
       } catch (error) {
         if (!silent) {
           Alert.alert(
@@ -142,35 +142,23 @@ export default function OrderDetailsScreen({ route }) {
           );
         }
       } finally {
-        setLoading(false);
         setRefreshing(false);
       }
     },
-    [orderId],
+    [orderId, refreshOrders],
   );
 
   useFocusEffect(
     useCallback(() => {
-      void refreshOrder({ showLoader: !order, silent: true });
-    }, [order, refreshOrder]),
+      void refreshOrdersIfStale({ reason: 'order_details_focus' });
+      return undefined;
+    }, [refreshOrdersIfStale]),
   );
 
   useEffect(() => {
     const unsubscribe = subscribeToLiveTracking(setTrackingState);
     return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    if (
-      !lastOrderEvent?.receivedAt ||
-      lastOrderEvent.receivedAt === lastHandledEvent.current
-    ) {
-      return;
-    }
-
-    lastHandledEvent.current = lastOrderEvent.receivedAt;
-    void refreshOrder({ silent: true });
-  }, [lastOrderEvent, refreshOrder]);
 
   useEffect(() => {
     if (
@@ -184,8 +172,8 @@ export default function OrderDetailsScreen({ route }) {
     if (!isTrackableStatus(order.status) || isTerminalStatus(order.status)) {
       void stopLiveTracking({
         reason:
-          normalizeStatus(order.status) === 'delivered' ||
-          normalizeStatus(order.status) === 'completed'
+          normalizeOrderStatus(order.status) === 'delivered' ||
+          normalizeOrderStatus(order.status) === 'completed'
             ? 'completed'
             : 'manual',
         orderStatus: order.status,
@@ -200,10 +188,8 @@ export default function OrderDetailsScreen({ route }) {
       }
 
       try {
-        setPendingStatus(nextStatus);
-        const updatedOrder = await updateOrderStatus(order._id, nextStatus);
+        await updateOrderStatus(order._id, nextStatus);
         await stopOrderAlert(order._id);
-        setOrder(current => ({ ...current, ...updatedOrder }));
 
         if (
           !isTrackableStatus(nextStatus) &&
@@ -212,30 +198,27 @@ export default function OrderDetailsScreen({ route }) {
         ) {
           await stopLiveTracking({
             reason:
-              normalizeStatus(nextStatus) === 'delivered' ||
-              normalizeStatus(nextStatus) === 'completed'
+              normalizeOrderStatus(nextStatus) === 'delivered' ||
+              normalizeOrderStatus(nextStatus) === 'completed'
                 ? 'completed'
                 : 'manual',
             orderStatus: nextStatus,
           });
         }
 
-        void requestOrderAlertRefresh({ broadcast: true });
         Alert.alert('Success', `Order moved to ${nextStatus}.`);
       } catch (error) {
         Alert.alert(
           'Update failed',
-          error?.message || 'Unable to update order status',
+          error?.message || 'Unable to update order status.',
         );
-      } finally {
-        setPendingStatus('');
       }
     },
     [
       order,
-      requestOrderAlertRefresh,
       trackingState.active,
       trackingState.orderId,
+      updateOrderStatus,
     ],
   );
 
@@ -244,7 +227,9 @@ export default function OrderDetailsScreen({ route }) {
   const hasTrackedThisOrder =
     trackingState.lastTrackedOrderId === order?._id ||
     trackingState.orderId === order?._id;
-  const normalizedStatus = normalizeStatus(order?.status || order?.orderStatus);
+  const normalizedStatus = normalizeOrderStatus(
+    order?.status || order?.orderStatus,
+  );
 
   const trackingMeta = useMemo(() => {
     if (!hasTrackedThisOrder) {
@@ -355,7 +340,7 @@ export default function OrderDetailsScreen({ route }) {
     showCopiedMessage('Map link copied');
   }, [mapLink, showCopiedMessage]);
 
-  if (loading && !order) {
+  if (isLoading && !order) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -374,10 +359,8 @@ export default function OrderDetailsScreen({ route }) {
     );
   }
 
-  const showDeliveredMessage =
-    normalizedStatus === 'delivered' || normalizedStatus === 'completed';
-  const showInactiveMessage =
-    normalizedStatus === 'cancelled' || normalizedStatus === 'rejected';
+  const showDeliveredMessage = isDeliveredOrderStatus(normalizedStatus);
+  const showInactiveMessage = isCancelledOrderStatus(normalizedStatus);
   const showUnavailableMessage =
     !isTrackableStatus(normalizedStatus) && !showDeliveredMessage;
 
@@ -394,10 +377,10 @@ export default function OrderDetailsScreen({ route }) {
       }}
       refreshControl={
         <RefreshControl
-          refreshing={refreshing}
+          refreshing={refreshing || isRefreshing}
           onRefresh={() => {
             setRefreshing(true);
-            void refreshOrder({ silent: true });
+            void refreshOrder({ force: true });
           }}
           tintColor={colors.primary}
         />

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -9,12 +8,9 @@ import {
   View,
 } from "react-native";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { useFocusEffect } from "@react-navigation/native";
 import AppButton from "../components/AppButton";
 import AppIcon from "../components/AppIcon";
-import { fetchOrders } from "../api/ownerApi";
-import { useOrderAlert } from "../context/OrderAlertContext";
-import { useSocket } from "../context/SocketContext";
+import { useOwnerOrders } from "../context/OwnerOrdersContext";
 import {
   colors,
   getStatusPalette,
@@ -38,13 +34,13 @@ const shiftDate = (value, amount) => {
   return date;
 };
 
-const clampToToday = (value) => {
+const clampToToday = value => {
   const normalizedValue = getStartOfDay(value);
   const today = getStartOfDay(new Date());
   return normalizedValue.getTime() > today.getTime() ? today : normalizedValue;
 };
 
-const getOrderDateValue = (order) =>
+const getOrderDateValue = order =>
   order?.createdAt || order?.created_at || order?.date || order?.updatedAt || order?.updated_at;
 
 const isSameLocalDate = (a, b) => {
@@ -62,7 +58,7 @@ const isSameLocalDate = (a, b) => {
   );
 };
 
-const formatSelectedDate = (value) => {
+const formatSelectedDate = value => {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -77,15 +73,15 @@ const formatSelectedDate = (value) => {
   });
 
   const parts = formatter.formatToParts(date);
-  const weekday = parts.find((part) => part.type === "weekday")?.value || "";
-  const day = parts.find((part) => part.type === "day")?.value || "";
-  const month = parts.find((part) => part.type === "month")?.value || "";
-  const year = parts.find((part) => part.type === "year")?.value || "";
+  const weekday = parts.find(part => part.type === "weekday")?.value || "";
+  const day = parts.find(part => part.type === "day")?.value || "";
+  const month = parts.find(part => part.type === "month")?.value || "";
+  const year = parts.find(part => part.type === "year")?.value || "";
 
   return `${weekday}, ${day} ${month} ${year}`.trim();
 };
 
-const formatOrderTime = (value) => {
+const formatOrderTime = value => {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -99,59 +95,19 @@ const formatOrderTime = (value) => {
 };
 
 export default function CalendarScreen() {
-  const { lastOrderEvent } = useSocket();
-  const { refreshSignal } = useOrderAlert();
-  const [orders, setOrders] = useState([]);
+  const {
+    orders,
+    isLoading,
+    isRefreshing,
+    error,
+    refreshOrders,
+  } = useOwnerOrders();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const lastHandledEvent = useRef(0);
-
-  const loadOrders = useCallback(async () => {
-    try {
-      setError("");
-      const response = await fetchOrders({ limit: 100 });
-      setOrders(response?.orders || []);
-    } catch (loadError) {
-      setError(loadError?.message || "Failed to load orders for the calendar.");
-      Alert.alert("Calendar", loadError?.message || "Failed to load orders for the calendar.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      void loadOrders();
-    }, [loadOrders])
-  );
-
-  useEffect(() => {
-    if (!refreshSignal) {
-      return;
-    }
-
-    void loadOrders();
-  }, [loadOrders, refreshSignal]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!lastOrderEvent?.receivedAt || lastOrderEvent.receivedAt === lastHandledEvent.current) {
-        return undefined;
-      }
-
-      lastHandledEvent.current = lastOrderEvent.receivedAt;
-      void loadOrders();
-      return undefined;
-    }, [lastOrderEvent, loadOrders])
-  );
 
   const filteredOrders = useMemo(
     () =>
-      orders.filter((order) => {
+      orders.filter(order => {
         const orderDate = getOrderDateValue(order);
         return orderDate ? isSameLocalDate(orderDate, selectedDate) : false;
       }),
@@ -174,7 +130,7 @@ export default function CalendarScreen() {
     });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -188,10 +144,14 @@ export default function CalendarScreen() {
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
-          refreshing={refreshing}
+          refreshing={refreshing || isRefreshing}
           onRefresh={() => {
             setRefreshing(true);
-            void loadOrders();
+            void refreshOrders({
+              silent: false,
+              force: true,
+              reason: "calendar_manual_refresh",
+            }).finally(() => setRefreshing(false));
           }}
           tintColor={colors.primary}
         />
@@ -236,7 +196,7 @@ export default function CalendarScreen() {
             size="sm"
             fullWidth={false}
             leftIcon="chevron-left"
-            onPress={() => setSelectedDate((current) => clampToToday(shiftDate(current, -1)))}
+            onPress={() => setSelectedDate(current => clampToToday(shiftDate(current, -1)))}
           />
           <AppButton
             label="Today"
@@ -251,7 +211,7 @@ export default function CalendarScreen() {
             size="sm"
             fullWidth={false}
             rightIcon="chevron-right"
-            onPress={() => setSelectedDate((current) => clampToToday(shiftDate(current, 1)))}
+            onPress={() => setSelectedDate(current => clampToToday(shiftDate(current, 1)))}
             disabled={isToday}
           />
         </View>
@@ -276,7 +236,7 @@ export default function CalendarScreen() {
             <Text style={styles.emptyText}>Try another day, use Select Date, or pull to refresh.</Text>
           </View>
         ) : (
-          filteredOrders.map((order) => {
+          filteredOrders.map(order => {
             const statusPalette = getStatusPalette(order?.status || order?.orderStatus);
             const orderDate = getOrderDateValue(order);
 

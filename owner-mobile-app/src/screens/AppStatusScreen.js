@@ -134,7 +134,7 @@ export default function AppStatusScreen() {
 
       setDeleteModalVisible(false);
       resetDeleteModalState();
-      await requestOrderAlertRefresh({ broadcast: true });
+      await requestOrderAlertRefresh({ broadcast: true, sync: true });
       Alert.alert("Success", "All orders deleted successfully");
     } catch (error) {
       setDeleteError(

@@ -8,26 +8,41 @@ import {
 } from 'react';
 import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../config/apiConfig';
+import {
+  getSafeOrderSocketLog,
+  getOwnerRoomJoinPayload,
+  joinOwnerOrderRooms,
+  registerOwnerSocketListeners,
+} from '../services/ownerSocketService';
 import { syncTrackedOrderStatus } from '../services/liveTrackingService';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
-const ORDER_EVENT_NAMES = [
-  'new_order',
-  'order_created',
-  'order_updated',
-  'order_status_updated',
-  'customer_order_cancelled',
-  'orders_cleared',
-];
-
 export const SocketProvider = ({ children }) => {
   const { token, isAuthenticated } = useAuth();
   const socketRef = useRef(null);
+  const lastJoinedRoomKeyRef = useRef('');
   const [isConnected, setIsConnected] = useState(false);
   const [lastOrderEvent, setLastOrderEvent] = useState(null);
   const [lastAppStatusEvent, setLastAppStatusEvent] = useState(null);
+  const [connectionSerial, setConnectionSerial] = useState(0);
+
+  useEffect(() => {
+    if (!isConnected || !socketRef.current) {
+      return;
+    }
+
+    const joinKey = JSON.stringify(getOwnerRoomJoinPayload());
+
+    if (joinKey === lastJoinedRoomKeyRef.current) {
+      return;
+    }
+
+    joinOwnerOrderRooms(socketRef.current);
+    console.log('[OWNER_SOCKET] auth join sent');
+    lastJoinedRoomKeyRef.current = joinKey;
+  }, [isConnected]);
 
   useEffect(() => {
     if (!isAuthenticated || !token) {
@@ -45,30 +60,29 @@ export const SocketProvider = ({ children }) => {
 
     socketRef.current = socket;
 
-    socket.on('connect', () => {
-      setIsConnected(true);
-      if (__DEV__) {
-        console.log('[socket] connected');
-      }
-    });
-
-    socket.on('disconnect', reason => {
-      setIsConnected(false);
-      if (__DEV__) {
-        console.log('[socket] disconnected', reason);
-      }
-    });
-
-    socket.on('connect_error', error => {
-      if (__DEV__) {
-        console.log('[socket] connect_error', error?.message || error);
-      }
-    });
-
-    ORDER_EVENT_NAMES.forEach(eventName => {
-      socket.on(eventName, payload => {
+    const cleanupListeners = registerOwnerSocketListeners(socket, {
+      onConnect: () => {
+        joinOwnerOrderRooms(socket);
+        console.log('[OWNER_SOCKET] connected');
+        console.log('[OWNER_SOCKET] auth join sent');
+        lastJoinedRoomKeyRef.current = JSON.stringify(getOwnerRoomJoinPayload());
+        setConnectionSerial(current => current + 1);
+        setIsConnected(true);
+      },
+      onDisconnect: reason => {
+        setIsConnected(false);
         if (__DEV__) {
-          console.log('[socket] order event', eventName, payload);
+          console.log('[OWNER_SOCKET] disconnected', reason);
+        }
+      },
+      onConnectError: error => {
+        if (__DEV__) {
+          console.log('[OWNER_SOCKET] connect_error', error?.message || error);
+        }
+      },
+      onOrderEvent: (eventName, payload) => {
+        if (eventName === 'order_status_updated') {
+          console.log(getSafeOrderSocketLog(payload));
         }
         syncTrackedOrderStatus(payload);
         setLastOrderEvent({
@@ -76,29 +90,25 @@ export const SocketProvider = ({ children }) => {
           payload,
           receivedAt: Date.now(),
         });
-      });
-    });
-
-    socket.on('app_status_updated', payload => {
-      if (__DEV__) {
-        console.log('[socket] app status updated', payload);
-      }
-      setLastAppStatusEvent({
-        eventName: 'app_status_updated',
-        payload,
-        receivedAt: Date.now(),
-      });
+      },
+      onAppStatusEvent: payload => {
+        if (__DEV__) {
+          console.log('[OWNER_SOCKET] app status updated');
+        }
+        setLastAppStatusEvent({
+          eventName: 'app_status_updated',
+          payload,
+          receivedAt: Date.now(),
+        });
+      },
     });
 
     socket.connect();
 
     return () => {
-      ORDER_EVENT_NAMES.forEach(eventName => {
-        socket.off(eventName);
-      });
-      socket.off('connect_error');
-      socket.off('app_status_updated');
+      cleanupListeners();
       socket.disconnect();
+      lastJoinedRoomKeyRef.current = '';
       setIsConnected(false);
     };
   }, [isAuthenticated, token]);
@@ -106,11 +116,12 @@ export const SocketProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       socket: socketRef.current,
+      connectionSerial,
       isConnected,
       lastOrderEvent,
       lastAppStatusEvent,
     }),
-    [isConnected, lastAppStatusEvent, lastOrderEvent],
+    [connectionSerial, isConnected, lastAppStatusEvent, lastOrderEvent],
   );
 
   return (

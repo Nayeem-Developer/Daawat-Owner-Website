@@ -11,20 +11,31 @@ import messaging from "@react-native-firebase/messaging";
 import axios from "axios";
 import { Platform } from "react-native";
 import { API_BASE_URL } from "../config/apiConfig";
-import { navigateToOrders } from "../navigation/navigationService";
+import { navigateToOrderDetails, navigateToOrders } from "../navigation/navigationService";
+import { getOrderIdentifier } from "../utils/formatters";
+import {
+  hasProcessedOwnerEvent,
+  isOwnerCancellationEvent,
+  isOwnerNewOrderEvent,
+  markOwnerEventProcessed,
+  normalizeOwnerOrderEvent,
+  OWNER_EVENT_NEW_ORDER_NOTIFICATION,
+  OWNER_EVENT_ORDER_CANCELLED,
+} from "../utils/ownerOrderEvents";
 import { stopOrderAlertSound } from "./orderAlertSound";
 
 const OWNER_SESSION_TOKEN_KEY = "ownerToken";
 const OWNER_FCM_TOKEN_KEY = "ownerFcmToken";
 const ACTIVE_ORDER_STORAGE_KEY = "ownerNotificationActiveOrder";
 const PENDING_ORDERS_NAVIGATION_KEY = "ownerNotificationPendingOrdersNavigation";
-const OWNER_ORDERS_CHANNEL_ID = "owner_orders";
+const PENDING_ORDER_DETAILS_NAVIGATION_KEY = "ownerNotificationPendingOrderDetailsNavigation";
+const OWNER_ORDERS_CHANNEL_ID = "owner_order_alerts";
 const ACTIVE_ORDER_NOTIFICATION_ID = "owner-order-active";
+const CANCELLATION_NOTIFICATION_ID_PREFIX = "owner-order-cancelled";
 const ACTION_OPEN_ORDERS = "OPEN_ORDERS";
 const ACTION_ACCEPT_ORDER = "ACCEPT_ORDER";
 const ACTION_REJECT_ORDER = "REJECT_ORDER";
 const DEFAULT_PRESS_ACTION_ID = "default";
-const NEW_ORDER_TYPE = "NEW_ORDER";
 const OWNER_NOTIFICATION_COLOR = "#8B1E2D";
 const OWNER_NOTIFICATION_LARGE_ICON = require("../assets/images/daawat_owner_notification_large.png");
 
@@ -51,41 +62,25 @@ const formatAmount = (value) => {
   return Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
 };
 
-const normalizeNotificationOrder = (value) => {
-  if (!value) {
-    return null;
-  }
+const normalizeNotificationOrderEvent = value => normalizeOwnerOrderEvent(value);
 
-  const sourceData = value?.data && typeof value.data === "object" ? value.data : value;
-  const messageType = sanitizeString(sourceData.type);
-  if (messageType && messageType !== NEW_ORDER_TYPE) {
-    return null;
-  }
+const normalizeNotificationOrder = value => {
+  const event = normalizeNotificationOrderEvent(value);
 
-  const mongoOrderId = sanitizeString(
-    sourceData.mongoOrderId || sourceData.orderId || value?._id || value?.id
-  );
-
-  if (!mongoOrderId) {
+  if (!event?.order || !isOwnerNewOrderEvent(event)) {
     return null;
   }
 
   return {
-    _id: mongoOrderId,
-    orderId: sanitizeString(sourceData.displayOrderId || value?.orderId || mongoOrderId),
-    customerName: sanitizeString(sourceData.customerName || value?.customerName) || "Customer",
-    phone: sanitizeString(sourceData.phone || value?.phone),
-    address: sanitizeString(sourceData.address || value?.address || value?.addressText),
-    totalAmount: formatAmount(
-      sourceData.totalAmount || value?.totalAmount || value?.total || value?.amount || 0
-    ),
-    paymentMethod: sanitizeString(sourceData.paymentMethod || value?.paymentMethod),
-    status:
-      sanitizeString(sourceData.status || value?.status || value?.orderStatus) ||
-      "Pending Confirmation",
-    createdAt: sanitizeString(sourceData.createdAt || value?.createdAt),
-    type: NEW_ORDER_TYPE,
+    ...event.order,
+    totalAmount: formatAmount(event.order?.total || 0),
+    type: OWNER_EVENT_NEW_ORDER_NOTIFICATION,
   };
+};
+
+const getCancellationNotificationId = event => {
+  const orderId = sanitizeString(getOrderIdentifier(event?.order));
+  return `${CANCELLATION_NOTIFICATION_ID_PREFIX}-${sanitizeString(event?.eventId) || orderId || "unknown"}`;
 };
 
 const readOwnerSessionToken = async () => sanitizeString(await AsyncStorage.getItem(OWNER_SESSION_TOKEN_KEY));
@@ -101,6 +96,19 @@ const ensureOrdersNavigationQueued = async () => {
   }
 
   await AsyncStorage.setItem(PENDING_ORDERS_NAVIGATION_KEY, "true");
+  return false;
+};
+
+const ensureOrderDetailsNavigationQueued = async (order) => {
+  if (navigateToOrderDetails(order)) {
+    await AsyncStorage.removeItem(PENDING_ORDER_DETAILS_NAVIGATION_KEY);
+    return true;
+  }
+
+  await AsyncStorage.setItem(
+    PENDING_ORDER_DETAILS_NAVIGATION_KEY,
+    JSON.stringify(order || null),
+  );
   return false;
 };
 
@@ -141,7 +149,8 @@ const updateOwnerOrderStatusFromNotification = async (orderId, orderStatus) => {
 };
 
 const handleNotificationAction = async (pressActionId, notification) => {
-  const order = normalizeNotificationOrder(notification);
+  const event = normalizeNotificationOrderEvent(notification);
+  const order = event?.order;
   if (!order?._id) {
     return { handled: false };
   }
@@ -159,6 +168,11 @@ const handleNotificationAction = async (pressActionId, notification) => {
   }
 
   if (pressActionId === ACTION_OPEN_ORDERS || pressActionId === DEFAULT_PRESS_ACTION_ID) {
+    if (isOwnerCancellationEvent(event)) {
+      await ensureOrderDetailsNavigationQueued(order);
+      return { handled: true, action: "OpenedCancelledOrder", orderId: order._id };
+    }
+
     await ensureOrdersNavigationQueued();
     return { handled: true, action: "Opened", orderId: order._id };
   }
@@ -183,13 +197,14 @@ const processNotifeeEvent = async (event) => {
 export const ensureOwnerOrderChannel = async () =>
   notifee.createChannel({
     id: OWNER_ORDERS_CHANNEL_ID,
-    name: "New Order Alerts",
+    name: "Owner Order Alerts",
     importance: AndroidImportance.HIGH,
     sound: "default",
     vibration: true,
     vibrationPattern: [300, 900, 300, 900],
     lights: true,
     lightColor: AndroidColor.RED,
+    badge: true,
   });
 
 export const createOrderNotificationChannel = ensureOwnerOrderChannel;
@@ -316,7 +331,8 @@ export const displayNewOrderNotification = async (orderInput) => {
       title: "New Order Received",
       body: `Order from ${order.customerName} \u2022 \u20b9${order.totalAmount}`,
       data: {
-        type: NEW_ORDER_TYPE,
+        type: OWNER_EVENT_NEW_ORDER_NOTIFICATION,
+        eventId: "",
         orderId: order._id,
         mongoOrderId: order._id,
         displayOrderId: order.orderId,
@@ -368,6 +384,60 @@ export const displayNewOrderNotification = async (orderInput) => {
   return order;
 };
 
+export const displayCancellationNotification = async (eventInput) => {
+  const event = normalizeNotificationOrderEvent(eventInput);
+  if (!event?.order || !isOwnerCancellationEvent(event)) {
+    return null;
+  }
+
+  if (!(await hasOwnerSession())) {
+    return null;
+  }
+
+  await ensureOwnerOrderChannel();
+
+  try {
+    await notifee.displayNotification({
+      id: getCancellationNotificationId(event),
+      title: "Order Cancelled",
+      body: `Order #${event.order?.orderId || event.order?._id} was cancelled by the customer.`,
+      data: {
+        type: OWNER_EVENT_ORDER_CANCELLED,
+        eventId: event.eventId,
+        orderId: event.orderId,
+        mongoOrderId: event.orderId,
+        displayOrderId: event.order?.orderId,
+        customerName: event.order?.customerName,
+        phone: event.order?.phone,
+        address: event.order?.addressText || event.order?.address,
+        status: event.status,
+        updatedAt: event.updatedAt,
+      },
+      android: {
+        channelId: OWNER_ORDERS_CHANNEL_ID,
+        smallIcon: "ic_stat_daawat_owner",
+        largeIcon: OWNER_NOTIFICATION_LARGE_ICON,
+        color: OWNER_NOTIFICATION_COLOR,
+        pressAction: {
+          id: DEFAULT_PRESS_ACTION_ID,
+          launchActivity: "default",
+        },
+        category: AndroidCategory.STATUS,
+        importance: AndroidImportance.HIGH,
+        autoCancel: true,
+        sound: "default",
+        vibrationPattern: [300, 900, 300, 900],
+        visibility: AndroidVisibility.PUBLIC,
+        showTimestamp: true,
+      },
+    });
+  } catch (error) {
+    logDev("[notifications] cancellation display failed", error?.message || error);
+  }
+
+  return event;
+};
+
 export const stopOrderAlert = async (orderId = "") => {
   stopOrderAlertSound();
 
@@ -389,18 +459,32 @@ export const stopOrderAlert = async (orderId = "") => {
   return true;
 };
 
-export const setupForegroundNotifications = ({ onOrderSyncRequested } = {}) => {
+export const setupForegroundNotifications = ({
+  onForegroundOrderEvent,
+  onOrderSyncRequested,
+} = {}) => {
   const handleSyncRequest = async () => {
     if (typeof onOrderSyncRequested === "function") {
       await onOrderSyncRequested();
     }
   };
 
+  const handleForegroundOrderEventRequest = async (eventPayload) => {
+    if (typeof onForegroundOrderEvent === "function") {
+      await onForegroundOrderEvent(eventPayload);
+    }
+  };
+
   const processInitialNotifications = async () => {
     try {
       const initialNotification = await notifee.getInitialNotification();
-      if (initialNotification?.notification) {
-        await ensureOrdersNavigationQueued();
+      const event = normalizeNotificationOrderEvent(initialNotification?.notification);
+      if (event?.order) {
+        if (isOwnerCancellationEvent(event)) {
+          await ensureOrderDetailsNavigationQueued(event.order);
+        } else {
+          await ensureOrdersNavigationQueued();
+        }
         await handleSyncRequest();
       }
     } catch (error) {
@@ -409,9 +493,13 @@ export const setupForegroundNotifications = ({ onOrderSyncRequested } = {}) => {
 
     try {
       const initialRemoteMessage = await messaging().getInitialNotification();
-      const order = normalizeNotificationOrder(initialRemoteMessage);
-      if (order) {
-        await ensureOrdersNavigationQueued();
+      const event = normalizeNotificationOrderEvent(initialRemoteMessage);
+      if (event?.order) {
+        if (isOwnerCancellationEvent(event)) {
+          await ensureOrderDetailsNavigationQueued(event.order);
+        } else {
+          await ensureOrdersNavigationQueued();
+        }
         await handleSyncRequest();
       }
     } catch (error) {
@@ -422,12 +510,23 @@ export const setupForegroundNotifications = ({ onOrderSyncRequested } = {}) => {
   void processInitialNotifications();
 
   const unsubscribeMessage = messaging().onMessage(async (remoteMessage) => {
+    const event = normalizeNotificationOrderEvent(remoteMessage);
+    if (!event?.order || !(await hasOwnerSession())) {
+      return;
+    }
+
+    if (isOwnerCancellationEvent(event)) {
+      await handleForegroundOrderEventRequest(remoteMessage);
+      return;
+    }
+
     const order = normalizeNotificationOrder(remoteMessage);
-    if (!order || !(await hasOwnerSession())) {
+    if (!order) {
       return;
     }
 
     await displayNewOrderNotification(order);
+    await handleForegroundOrderEventRequest(remoteMessage);
     await handleSyncRequest();
   });
 
@@ -439,12 +538,16 @@ export const setupForegroundNotifications = ({ onOrderSyncRequested } = {}) => {
   });
 
   const unsubscribeNotificationOpened = messaging().onNotificationOpenedApp(async (remoteMessage) => {
-    const order = normalizeNotificationOrder(remoteMessage);
-    if (!order) {
+    const event = normalizeNotificationOrderEvent(remoteMessage);
+    if (!event?.order) {
       return;
     }
 
-    await ensureOrdersNavigationQueued();
+    if (isOwnerCancellationEvent(event)) {
+      await ensureOrderDetailsNavigationQueued(event.order);
+    } else {
+      await ensureOrdersNavigationQueued();
+    }
     await handleSyncRequest();
   });
 
@@ -458,8 +561,23 @@ export const setupForegroundNotifications = ({ onOrderSyncRequested } = {}) => {
 export const setupForegroundMessageHandler = setupForegroundNotifications;
 
 export const setupBackgroundMessageHandler = async (remoteMessage) => {
+  const event = normalizeNotificationOrderEvent(remoteMessage);
+  if (!event?.order || !(await hasOwnerSession())) {
+    return;
+  }
+
+  if (isOwnerCancellationEvent(event)) {
+    if (await hasProcessedOwnerEvent(event)) {
+      return;
+    }
+
+    await markOwnerEventProcessed(event);
+    await displayCancellationNotification(event);
+    return;
+  }
+
   const order = normalizeNotificationOrder(remoteMessage);
-  if (!order || !(await hasOwnerSession())) {
+  if (!order) {
     return;
   }
 
@@ -481,4 +599,19 @@ export const consumePendingOrdersNavigation = async () => {
   }
 
   return ensureOrdersNavigationQueued();
+};
+
+export const consumePendingOrderDetailsNavigation = async () => {
+  const rawValue = await AsyncStorage.getItem(PENDING_ORDER_DETAILS_NAVIGATION_KEY);
+  if (!rawValue) {
+    return false;
+  }
+
+  try {
+    const order = JSON.parse(rawValue);
+    return ensureOrderDetailsNavigationQueued(order);
+  } catch {
+    await AsyncStorage.removeItem(PENDING_ORDER_DETAILS_NAVIGATION_KEY);
+    return false;
+  }
 };

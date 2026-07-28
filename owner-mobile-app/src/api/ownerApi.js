@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 import { API_ROUTES } from '../config/apiConfig';
 import { getListFromResponseBody, normalizeOrder } from '../utils/formatters';
+import { getOrderStatusConflictMessage } from '../utils/orderStatus';
 
 const getOwnerFromResponse = (responseBody, email) =>
   responseBody?.owner ||
@@ -150,14 +151,39 @@ export const clearAllOrders = async ({ password, confirmText }) => {
 };
 
 export const updateOrderStatus = async (orderId, orderStatus) => {
-  const response = await apiClient.patch(
-    `${API_ROUTES.ownerOrders}/${orderId}/status`,
-    { orderStatus },
-  );
+  try {
+    const response = await apiClient.patch(
+      `${API_ROUTES.ownerOrders}/${orderId}/status`,
+      { orderStatus },
+    );
 
-  return normalizeOrder(
-    response?.data?.data || response?.data?.order || response?.data,
-  );
+    return normalizeOrder(
+      response?.data?.data || response?.data?.order || response?.data,
+    );
+  } catch (error) {
+    const conflictOrder =
+      error?.status === 409
+        ? normalizeOrder(
+            error?.data?.order ||
+              error?.data?.data?.order ||
+              error?.data?.data ||
+              null,
+          )
+        : null;
+
+    if (error?.status === 409) {
+      const conflictError = new Error(
+        getOrderStatusConflictMessage(conflictOrder),
+      );
+      conflictError.status = 409;
+      conflictError.code = 'ORDER_STATUS_CONFLICT';
+      conflictError.order = conflictOrder;
+      conflictError.response = error?.response;
+      throw conflictError;
+    }
+
+    throw error;
+  }
 };
 
 export const updateOrderDeliveryLocation = async (orderId, location) => {

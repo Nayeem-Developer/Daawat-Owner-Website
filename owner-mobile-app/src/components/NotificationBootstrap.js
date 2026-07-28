@@ -4,6 +4,7 @@ import messaging from "@react-native-firebase/messaging";
 import { useAuth } from "../context/AuthContext";
 import { useOrderAlert } from "../context/OrderAlertContext";
 import {
+  consumePendingOrderDetailsNavigation,
   consumePendingOrdersNavigation,
   registerOwnerFcmToken,
   requestNotificationPermission,
@@ -13,8 +14,18 @@ import {
 
 export default function NotificationBootstrap() {
   const { isAuthenticated, token } = useAuth();
-  const { requestOrderAlertRefresh } = useOrderAlert();
+  const { handleForegroundOrderEvent, requestOrderAlertRefresh } = useOrderAlert();
   const hasShownPermissionWarning = useRef(false);
+  const handleForegroundOrderEventRef = useRef(handleForegroundOrderEvent);
+  const requestOrderAlertRefreshRef = useRef(requestOrderAlertRefresh);
+
+  useEffect(() => {
+    handleForegroundOrderEventRef.current = handleForegroundOrderEvent;
+  }, [handleForegroundOrderEvent]);
+
+  useEffect(() => {
+    requestOrderAlertRefreshRef.current = requestOrderAlertRefresh;
+  }, [requestOrderAlertRefresh]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -24,8 +35,7 @@ export default function NotificationBootstrap() {
     }
 
     const syncOrders = async () => {
-      await requestOrderAlertRefresh({ broadcast: true });
-      await consumePendingOrdersNavigation();
+      await requestOrderAlertRefreshRef.current({ broadcast: true, sync: true });
     };
 
     const bootstrapNotifications = async () => {
@@ -49,12 +59,15 @@ export default function NotificationBootstrap() {
         }
       }
 
+      await consumePendingOrderDetailsNavigation();
       await consumePendingOrdersNavigation();
     };
 
     void bootstrapNotifications();
 
     const unsubscribeForeground = setupForegroundMessageHandler({
+      onForegroundOrderEvent: eventPayload =>
+        handleForegroundOrderEventRef.current?.(eventPayload),
       onOrderSyncRequested: syncOrders,
     });
 
@@ -70,7 +83,7 @@ export default function NotificationBootstrap() {
       unsubscribeForeground();
       unsubscribeTokenRefresh();
     };
-  }, [isAuthenticated, requestOrderAlertRefresh, token]);
+  }, [isAuthenticated, token]);
 
   return null;
 }

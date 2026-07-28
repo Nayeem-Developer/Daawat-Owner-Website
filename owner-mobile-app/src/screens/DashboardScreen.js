@@ -9,13 +9,13 @@ import {
   View,
 } from "react-native";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import AppIcon from "../components/AppIcon";
 import DashboardCard from "../components/DashboardCard";
 import RevenueCard from "../components/RevenueCard";
-import { fetchAppStatus, fetchOrderStats, fetchOrders } from "../api/ownerApi";
+import { fetchAppStatus } from "../api/ownerApi";
 import { useAuth } from "../context/AuthContext";
-import { useOrderAlert } from "../context/OrderAlertContext";
+import { useOwnerOrders } from "../context/OwnerOrdersContext";
 import { useSocket } from "../context/SocketContext";
 import useResponsiveScreen from "../hooks/useResponsiveScreen";
 import {
@@ -26,7 +26,7 @@ import {
   spacing,
   typography,
 } from "../theme/theme";
-import { computeOrderStats, formatCurrency, formatDateTime } from "../utils/formatters";
+import { formatCurrency, formatDateTime } from "../utils/formatters";
 
 const quickActions = [
   {
@@ -80,7 +80,7 @@ const quickActions = [
   },
 ];
 
-const getOrderDateValue = (order) =>
+const getOrderDateValue = order =>
   order?.createdAt || order?.created_at || order?.date || order?.updatedAt || order?.updated_at;
 
 const isSameLocalDate = (value, date) => {
@@ -102,7 +102,7 @@ const isSameLocalDate = (value, date) => {
   );
 };
 
-const formatSelectedDateLabel = (value) => {
+const formatSelectedDateLabel = value => {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -160,8 +160,15 @@ const getDashboardStats = (orders = []) =>
 export default function DashboardScreen() {
   const navigation = useNavigation();
   const { owner, verifyOwnerPassword } = useAuth();
-  const { lastOrderEvent, lastAppStatusEvent } = useSocket();
-  const { refreshSignal } = useOrderAlert();
+  const { lastAppStatusEvent } = useSocket();
+  const {
+    orders,
+    orderStats,
+    isLoading,
+    isRefreshing,
+    error: ordersError,
+    refreshOrders,
+  } = useOwnerOrders();
   const {
     bottomPadding,
     horizontalPadding,
@@ -170,120 +177,68 @@ export default function DashboardScreen() {
     summaryColumns,
     topPadding,
   } = useResponsiveScreen({ includeTopInset: true });
-  const [overallStats, setOverallStats] = useState({});
-  const [orders, setOrders] = useState([]);
   const [appStatus, setAppStatus] = useState({ isActive: true, message: "" });
   const [selectedDate, setSelectedDate] = useState(null);
   const [isRevenueVisible, setIsRevenueVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [appStatusLoading, setAppStatusLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [appStatusError, setAppStatusError] = useState("");
 
-  const loadDashboard = useCallback(async () => {
+  const loadAppStatus = useCallback(async () => {
     try {
-      setError("");
-
-      const [statsResult, ordersResult, appStatusResult] = await Promise.allSettled([
-        fetchOrderStats(),
-        fetchOrders({ limit: 100 }),
-        fetchAppStatus(),
-      ]);
-
-      const statsResponse =
-        statsResult.status === "fulfilled" && statsResult.value ? statsResult.value : {};
-      const ordersResponse =
-        ordersResult.status === "fulfilled" && ordersResult.value
-          ? ordersResult.value
-          : { orders: [] };
-      const appStatusResponse =
-        appStatusResult.status === "fulfilled" && appStatusResult.value
-          ? appStatusResult.value
-          : { isActive: true, message: "" };
-
-      const allOrders = ordersResponse?.orders || [];
-      const derivedStats = computeOrderStats(allOrders);
-
-      setOverallStats({
-        totalOrders: statsResponse?.totalOrders ?? derivedStats.totalOrders,
-        pendingOrders: statsResponse?.pendingOrders ?? derivedStats.pendingOrders,
-        acceptedOrders: statsResponse?.acceptedOrders ?? derivedStats.acceptedOrders,
-        deliveredOrders: statsResponse?.deliveredOrders ?? derivedStats.deliveredOrders,
-        cancelledOrders: statsResponse?.cancelledOrders ?? derivedStats.cancelledOrders,
-        totalRevenue: statsResponse?.totalRevenue ?? derivedStats.totalRevenue,
-      });
-      setOrders(allOrders);
+      setAppStatusError("");
+      setAppStatusLoading(true);
+      const appStatusResponse = await fetchAppStatus();
       setAppStatus(appStatusResponse || { isActive: true, message: "" });
-
-      const firstError =
-        [statsResult, ordersResult, appStatusResult]
-          .filter((result) => result.status === "rejected")
-          .map((result) => result.reason)
-          .find(Boolean) || null;
-
-      if (firstError && firstError?.status !== 401) {
-        setError(firstError?.message || "Unable to load dashboard data right now.");
-      }
-    } catch (loadError) {
-      if (loadError?.status !== 401) {
-        setError(loadError?.message || "Unable to load dashboard data right now.");
-        setOverallStats({});
-        setOrders([]);
-      }
+      return appStatusResponse;
+    } catch (error) {
+      setAppStatusError(
+        error?.message || "Unable to load dashboard data right now.",
+      );
+      throw error;
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setAppStatusLoading(false);
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      void loadDashboard();
-    }, [loadDashboard])
-  );
+  useEffect(() => {
+    void loadAppStatus();
+  }, [loadAppStatus]);
 
   useEffect(() => {
-    if (!refreshSignal) {
+    if (!lastAppStatusEvent?.receivedAt) {
       return;
     }
 
-    setIsRevenueVisible(false);
-    void loadDashboard();
-  }, [loadDashboard, refreshSignal]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!lastOrderEvent && !lastAppStatusEvent) {
-        return undefined;
-      }
-
-      void loadDashboard();
-      return undefined;
-    }, [lastAppStatusEvent, lastOrderEvent, loadDashboard])
-  );
+    const nextPayload = lastAppStatusEvent?.payload?.data || lastAppStatusEvent?.payload || {};
+    setAppStatus({
+      isActive: nextPayload?.isActive !== false,
+      message: nextPayload?.message || "",
+    });
+  }, [lastAppStatusEvent]);
 
   const filteredOrders = useMemo(() => {
     if (!selectedDate) {
       return orders;
     }
 
-    return orders.filter((order) => isSameLocalDate(getOrderDateValue(order), selectedDate));
+    return orders.filter(order => isSameLocalDate(getOrderDateValue(order), selectedDate));
   }, [orders, selectedDate]);
 
   const displayStats = useMemo(() => {
     if (!selectedDate) {
       return {
-        totalOrders: overallStats?.totalOrders ?? 0,
-        pendingOrders: overallStats?.pendingOrders ?? 0,
-        acceptedOrders: overallStats?.acceptedOrders ?? 0,
-        deliveredOrders: overallStats?.deliveredOrders ?? 0,
-        cancelledOrders: overallStats?.cancelledOrders ?? 0,
-        totalRevenue: overallStats?.totalRevenue ?? 0,
+        totalOrders: orderStats?.totalOrders ?? 0,
+        pendingOrders: orderStats?.pendingOrders ?? 0,
+        acceptedOrders: orderStats?.acceptedOrders ?? 0,
+        deliveredOrders: orderStats?.deliveredOrders ?? 0,
+        cancelledOrders: orderStats?.cancelledOrders ?? 0,
+        totalRevenue: orderStats?.totalRevenue ?? 0,
       };
     }
 
     return getDashboardStats(filteredOrders);
-  }, [filteredOrders, overallStats, selectedDate]);
+  }, [filteredOrders, orderStats, selectedDate]);
 
   const displayedOrders = selectedDate ? filteredOrders : orders.slice(0, 5);
   const isDateFilterActive = Boolean(selectedDate);
@@ -352,8 +307,9 @@ export default function DashboardScreen() {
 
   const appStatusState = appStatus?.isActive ? "Active" : "Inactive";
   const appStatusDescription = appStatus?.isActive ? "Accepting orders" : "Not accepting orders";
+  const combinedError = ordersError || appStatusError;
 
-  if (loading) {
+  if (isLoading || appStatusLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -375,10 +331,17 @@ export default function DashboardScreen() {
       ]}
       refreshControl={
         <RefreshControl
-          refreshing={refreshing}
+          refreshing={refreshing || isRefreshing}
           onRefresh={() => {
             setRefreshing(true);
-            void loadDashboard();
+            void Promise.allSettled([
+              refreshOrders({
+                silent: false,
+                force: true,
+                reason: "dashboard_manual_refresh",
+              }),
+              loadAppStatus(),
+            ]).finally(() => setRefreshing(false));
           }}
           tintColor={colors.primary}
         />
@@ -426,10 +389,10 @@ export default function DashboardScreen() {
         </View>
       </Pressable>
 
-      {error ? (
+      {combinedError ? (
         <View style={styles.errorCard}>
           <AppIcon name="alert-circle-outline" size={18} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{combinedError}</Text>
         </View>
       ) : null}
 
@@ -458,7 +421,7 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.statsGrid}>
-          {summaryCards.map((card) => (
+          {summaryCards.map(card => (
             <DashboardCard
               key={card.title}
               title={card.title}
@@ -483,7 +446,7 @@ export default function DashboardScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
-          {quickActions.map((action) => (
+          {quickActions.map(action => (
             <DashboardCard
               key={action.screen}
               title={action.title}
@@ -520,7 +483,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
           ) : (
-            displayedOrders.map((order) => {
+            displayedOrders.map(order => {
               const statusPalette = getStatusPalette(order?.status || order?.orderStatus);
 
               return (

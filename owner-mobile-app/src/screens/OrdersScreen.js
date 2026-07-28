@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,9 +13,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import AppButton from '../components/AppButton';
 import AppInput from '../components/AppInput';
 import OrderCard from '../components/OrderCard';
-import { fetchOrders, updateOrderStatus } from '../api/ownerApi';
-import { useOrderAlert } from '../context/OrderAlertContext';
-import { useSocket } from '../context/SocketContext';
+import { useOwnerOrders } from '../context/OwnerOrdersContext';
 import useResponsiveScreen from '../hooks/useResponsiveScreen';
 import {
   getActiveTrackingOrderId,
@@ -24,120 +22,52 @@ import {
 } from '../services/liveTrackingService';
 import { stopOrderAlert } from '../services/notificationService';
 import { colors, spacing, typography } from '../theme/theme';
-
-const FILTERS = [
-  'All',
-  'Pending',
-  'Accepted',
-  'Out for Delivery',
-  'Delivered',
-  'Cancelled',
-];
-
-const normalizeStatus = status =>
-  String(status || '')
-    .trim()
-    .toLowerCase();
+import {
+  matchesOrderFilter,
+  normalizeOrderStatus,
+  ORDER_FILTERS,
+} from '../utils/orderStatus';
 
 const shouldAutoStopTracking = status =>
-  normalizeStatus(status) !== 'out for delivery';
-
-const matchesFilter = (order, activeFilter) => {
-  if (activeFilter === 'All') {
-    return true;
-  }
-
-  const status = String(
-    order?.status || order?.orderStatus || '',
-  ).toLowerCase();
-
-  if (activeFilter === 'Pending') {
-    return (
-      status === 'placed' || status === 'pending' || status.includes('pending')
-    );
-  }
-
-  if (activeFilter === 'Accepted') {
-    return status === 'accepted' || status === 'confirmed';
-  }
-
-  if (activeFilter === 'Out for Delivery') {
-    return status.includes('out for delivery');
-  }
-
-  if (activeFilter === 'Delivered') {
-    return status.includes('delivered');
-  }
-
-  if (activeFilter === 'Cancelled') {
-    return (
-      status.includes('cancel') ||
-      status.includes('reject') ||
-      status.includes('expired')
-    );
-  }
-
-  return true;
-};
+  normalizeOrderStatus(status) !== 'out for delivery';
 
 export default function OrdersScreen() {
   const navigation = useNavigation();
-  const { lastOrderEvent } = useSocket();
-  const { refreshSignal, requestOrderAlertRefresh } = useOrderAlert();
   const { bottomPadding, horizontalPadding, maxContentWidth, topPadding } =
     useResponsiveScreen();
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    orders,
+    isLoading,
+    isRefreshing,
+    error,
+    pendingActions,
+    refreshOrders,
+    refreshOrdersIfStale,
+    updateOrderStatus,
+  } = useOwnerOrders();
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
-  const [pendingAction, setPendingAction] = useState({
-    orderId: '',
-    status: '',
-  });
-  const lastHandledEvent = useRef(0);
 
   const loadOrders = useCallback(async () => {
     try {
-      const response = await fetchOrders({ limit: 100 });
-      setOrders(response.orders || []);
-    } catch (error) {
-      Alert.alert('Orders', error?.message || 'Failed to load orders');
+      await refreshOrders({
+        silent: false,
+        force: true,
+        reason: 'orders_manual_refresh',
+      });
+    } catch (loadError) {
+      Alert.alert('Orders', loadError?.message || 'Failed to load orders');
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshOrders]);
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      void loadOrders();
-    }, [loadOrders]),
-  );
-
-  useEffect(() => {
-    if (!refreshSignal) {
-      return;
-    }
-
-    void loadOrders();
-  }, [loadOrders, refreshSignal]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (
-        !lastOrderEvent?.receivedAt ||
-        lastOrderEvent.receivedAt === lastHandledEvent.current
-      ) {
-        return undefined;
-      }
-
-      lastHandledEvent.current = lastOrderEvent.receivedAt;
-      void loadOrders();
-
+      void refreshOrdersIfStale({ reason: 'orders_focus' });
       return undefined;
-    }, [lastOrderEvent, loadOrders]),
+    }, [refreshOrdersIfStale]),
   );
 
   const filteredOrders = useMemo(() => {
@@ -158,47 +88,49 @@ export default function OrdersScreen() {
         .join(' ')
         .toLowerCase();
 
-      return matchesFilter(order, activeFilter) && searchable.includes(term);
+      return matchesOrderFilter(order, activeFilter) && searchable.includes(term);
     });
   }, [activeFilter, orders, search]);
+
+  const filterCounts = useMemo(
+    () =>
+      ORDER_FILTERS.reduce((counts, filter) => {
+        counts[filter] = orders.filter(order => matchesOrderFilter(order, filter)).length;
+        return counts;
+      }, {}),
+    [orders],
+  );
 
   const handleStatusUpdate = useCallback(
     async (orderId, nextStatus) => {
       try {
-        setPendingAction({ orderId, status: nextStatus });
-        const updated = await updateOrderStatus(orderId, nextStatus);
+        await updateOrderStatus(orderId, nextStatus);
         await stopOrderAlert(orderId);
-        setOrders(current =>
-          current.map(item =>
-            item._id === orderId ? { ...item, ...updated } : item,
-          ),
-        );
         const trackingState = getLiveTrackingState();
+
         if (
           shouldAutoStopTracking(nextStatus) &&
           trackingState.orderId === orderId
         ) {
           void stopLiveTracking({
             reason:
-              normalizeStatus(nextStatus) === 'delivered' ||
-              normalizeStatus(nextStatus) === 'completed'
+              normalizeOrderStatus(nextStatus) === 'delivered' ||
+              normalizeOrderStatus(nextStatus) === 'completed'
                 ? 'completed'
                 : 'manual',
             orderStatus: nextStatus,
           });
         }
-        void requestOrderAlertRefresh({ broadcast: true });
+
         Alert.alert('Success', `Order moved to ${nextStatus}.`);
-      } catch (error) {
+      } catch (updateError) {
         Alert.alert(
           'Update failed',
-          error?.message || 'Unable to update order status',
+          updateError?.message || 'Unable to update order status.',
         );
-      } finally {
-        setPendingAction({ orderId: '', status: '' });
       }
     },
-    [requestOrderAlertRefresh],
+    [updateOrderStatus],
   );
 
   useEffect(() => {
@@ -208,9 +140,7 @@ export default function OrdersScreen() {
       return;
     }
 
-    const trackedOrder = orders.find(
-      item => item._id === trackingState.orderId,
-    );
+    const trackedOrder = orders.find(item => item._id === trackingState.orderId);
 
     if (
       trackedOrder &&
@@ -218,9 +148,9 @@ export default function OrdersScreen() {
     ) {
       void stopLiveTracking({
         reason:
-          normalizeStatus(trackedOrder.status || trackedOrder.orderStatus) ===
+          normalizeOrderStatus(trackedOrder.status || trackedOrder.orderStatus) ===
             'delivered' ||
-          normalizeStatus(trackedOrder.status || trackedOrder.orderStatus) ===
+          normalizeOrderStatus(trackedOrder.status || trackedOrder.orderStatus) ===
             'completed'
             ? 'completed'
             : 'manual',
@@ -229,7 +159,7 @@ export default function OrdersScreen() {
     }
   }, [orders]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -245,14 +175,15 @@ export default function OrdersScreen() {
         renderItem={({ item }) => (
           <OrderCard
             order={item}
-            pendingStatus={
-              pendingAction.orderId === item._id ? pendingAction.status : ''
-            }
+            pendingStatus={pendingActions[item._id] || ''}
             onStatusPress={nextStatus =>
               handleStatusUpdate(item._id, nextStatus)
             }
             onViewDetails={() =>
-              navigation.navigate('Order Details', { order: item })
+              navigation.navigate('Order Details', {
+                orderId: item._id,
+                order: item,
+              })
             }
           />
         )}
@@ -282,10 +213,10 @@ export default function OrdersScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.filterRow}
             >
-              {FILTERS.map(filter => (
+              {ORDER_FILTERS.map(filter => (
                 <AppButton
                   key={filter}
-                  label={filter}
+                  label={`${filter} (${filterCounts[filter] || 0})`}
                   variant={activeFilter === filter ? 'primary' : 'chip'}
                   size="sm"
                   onPress={() => setActiveFilter(filter)}
@@ -293,6 +224,7 @@ export default function OrdersScreen() {
                 />
               ))}
             </ScrollView>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
             <Text style={styles.resultText}>
               {filteredOrders.length} orders
             </Text>
@@ -303,7 +235,7 @@ export default function OrdersScreen() {
         }
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={refreshing || isRefreshing}
             onRefresh={() => {
               setRefreshing(true);
               void loadOrders();
@@ -353,6 +285,11 @@ const styles = StyleSheet.create({
   filterRow: {
     gap: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: typography.small,
+    fontWeight: '600',
   },
   resultText: {
     color: colors.textSoft,

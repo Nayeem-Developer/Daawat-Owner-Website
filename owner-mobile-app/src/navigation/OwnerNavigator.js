@@ -9,7 +9,10 @@ import {
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AppIcon from '../components/AppIcon';
-import { consumePendingOrdersNavigation } from '../services/notificationService';
+import {
+  consumePendingOrderDetailsNavigation,
+  consumePendingOrdersNavigation,
+} from '../services/notificationService';
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import OrdersScreen from '../screens/OrdersScreen';
@@ -80,6 +83,7 @@ export default function OwnerNavigator() {
     <NavigationContainer
       ref={navigationRef}
       onReady={() => {
+        void consumePendingOrderDetailsNavigation();
         void consumePendingOrdersNavigation();
       }}
     >
